@@ -27,8 +27,9 @@ export default function History() {
 
     useFocusEffect(
         useCallback(() => {
+            setLoading(true);
             fetchHistory();
-        }, [])
+        }, [groupId])
     );
 
     async function fetchHistory() {

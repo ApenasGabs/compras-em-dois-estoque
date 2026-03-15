@@ -1,11 +1,12 @@
 import React, {useEffect, useState} from "react";
 import {
     View, Text, TextInput, TouchableOpacity,
-    Modal, ScrollView, KeyboardAvoidingView, Platform
+    Modal, ScrollView, KeyboardAvoidingView, Platform, Alert
 } from "react-native";
 import { supabase } from "../lib/supabase";
 import { useGroupStore } from "../stores/useGroupStore";
 import { useAuthStore } from "../stores/useAuthStore";
+import {trackAction} from "../lib/rateLimit";
 
 const CATEGORIES = [
     { emoji: "🥦", name: "Hortifruti" },
@@ -59,22 +60,29 @@ export default function AddItemModal({ visible, onClose, onAdded, initialName = 
         if (!nome.trim()) return;
         setLoading(true);
 
-        await supabase.from("items").insert({
-            list_id: listId,
-            nome: nome.trim(),
-            quantidade: `${quantidade} ${unidade}`,
-            categoria,
-            comprado: false,
-            criado_por: userId,
-        });
+        try {
+            await trackAction("add_item");
 
-        setNome("");
-        setQuantidade("1");
-        setUnidade("un");
-        setCategoria("Outros");
-        setLoading(false);
-        onAdded();
-        onClose();
+            await supabase.from("items").insert({
+                list_id: listId,
+                nome: nome.trim(),
+                quantidade: `${quantidade} ${unidade}`,
+                categoria,
+                comprado: false,
+                criado_por: userId,
+            });
+
+            setNome("");
+            setQuantidade("1");
+            setUnidade("un");
+            setCategoria("Outros");
+            onAdded();
+            onClose();
+        } catch (e: any) {
+            Alert.alert("Erro", e.message);
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (
