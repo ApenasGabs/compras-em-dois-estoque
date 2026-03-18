@@ -15,6 +15,7 @@ interface Item {
     categoria: string;
     comprado: boolean;
     criado_por: string;
+    preco: number | null;
 }
 
 const CATEGORIES = ["Todos", "🥦 Hortifruti", "🥩 Carnes", "🥛 Laticínios", "🧹 Limpeza", "🌾 Grãos", "🍪 Outros"];
@@ -33,6 +34,7 @@ export default function List() {
     const [items, setItems] = useState<Item[]>([]);
     const [newItem, setNewItem] = useState("");
     const [loading, setLoading] = useState(true);
+    const [precos, setPrecos] = useState<{ [id: string]: string }>({});
     const [selectedCategory, setSelectedCategory] = useState("Todos");
     const { listId } = useGroupStore();
     const { userId } = useAuthStore();
@@ -71,6 +73,7 @@ export default function List() {
             Alert.alert("Lista vazia", "Adicione itens antes de finalizar a compra.");
             return;
         }
+
         Alert.alert(
             "Finalizar compra",
             "Os itens comprados serão arquivados e a lista será resetada.",
@@ -79,13 +82,20 @@ export default function List() {
                 { text: "Finalizar", onPress: async () => {
                         const { groupId } = useGroupStore.getState();
 
-                        // Arquiva a lista atual
+                        // Calcula total dos itens que têm preço
+                        const total = items
+                            .filter(i => i.preco !== null)
+                            .reduce((sum, i) => sum + (i.preco ?? 0), 0);
+
                         await supabase
                             .from("shopping_lists")
-                            .update({ ativa: false, finalizada_em: new Date().toISOString() })
+                            .update({
+                                ativa: false,
+                                finalizada_em: new Date().toISOString(),
+                                total: total > 0 ? total : null,
+                            })
                             .eq("id", listId);
 
-                        // Cria nova lista
                         const { data: newList } = await supabase
                             .from("shopping_lists")
                             .insert({ group_id: groupId, titulo: "Lista da semana", ativa: true })
@@ -95,6 +105,7 @@ export default function List() {
                         if (newList) {
                             useGroupStore.getState().setListId(newList.id);
                             setItems([]);
+                            setPrecos({});
                         }
                     }},
             ]
@@ -243,32 +254,64 @@ export default function List() {
                                             backgroundColor: item.comprado ? "rgba(124,158,135,0.08)" : "white",
                                             borderRadius: 14,
                                             padding: 14,
-                                            flexDirection: "row",
-                                            alignItems: "center",
-                                            gap: 12,
                                             borderWidth: 1.5,
                                             borderColor: item.comprado ? "rgba(124,158,135,0.2)" : "transparent",
                                         }}
                                     >
-                                        <View style={{
-                                            width: 22, height: 22, borderRadius: 11,
-                                            borderWidth: 2,
-                                            borderColor: item.comprado ? "#7C9E87" : "#E5E0D8",
-                                            backgroundColor: item.comprado ? "#7C9E87" : "transparent",
-                                            alignItems: "center", justifyContent: "center",
-                                        }}>
-                                            {item.comprado && <Text style={{ color: "white", fontSize: 11 }}>✓</Text>}
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={{
-                                                fontSize: 15, fontWeight: "500",
-                                                color: item.comprado ? "#9A9590" : "#2A2A2A",
-                                                textDecorationLine: item.comprado ? "line-through" : "none",
+                                        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                                            <View style={{
+                                                width: 22, height: 22, borderRadius: 11,
+                                                borderWidth: 2,
+                                                borderColor: item.comprado ? "#7C9E87" : "#E5E0D8",
+                                                backgroundColor: item.comprado ? "#7C9E87" : "transparent",
+                                                alignItems: "center", justifyContent: "center",
                                             }}>
-                                                {item.nome}
-                                            </Text>
-                                            <Text style={{ fontSize: 12, color: "#9A9590" }}>{item.quantidade}</Text>
+                                                {item.comprado && <Text style={{ color: "white", fontSize: 11 }}>✓</Text>}
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{
+                                                    fontSize: 15, fontWeight: "500",
+                                                    color: item.comprado ? "#9A9590" : "#2A2A2A",
+                                                    textDecorationLine: item.comprado ? "line-through" : "none",
+                                                }}>
+                                                    {item.nome}
+                                                </Text>
+                                                <Text style={{ fontSize: 12, color: "#9A9590" }}>{item.quantidade}</Text>
+                                            </View>
                                         </View>
+
+                                        {/* Campo de preço — aparece só quando comprado */}
+                                        {item.comprado && (
+                                            <TouchableOpacity
+                                                activeOpacity={1}
+                                                onPress={e => e.stopPropagation?.()}
+                                                style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(124,158,135,0.15)" }}
+                                            >
+                                                <Text style={{ fontSize: 12, color: "#9A9590", fontWeight: "500" }}>Preço pago</Text>
+                                                <View style={{ flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: "white", borderRadius: 8, borderWidth: 1, borderColor: "#E5E0D8", paddingHorizontal: 8 }}>
+                                                    <Text style={{ fontSize: 13, color: "#9A9590" }}>R$</Text>
+                                                    <TextInput
+                                                        value={precos[item.id] ?? (item.preco ? String(item.preco).replace(".", ",") : "")}
+                                                        onChangeText={(value) => {
+                                                            // Permite apenas números e vírgula
+                                                            const cleaned = value.replace(/[^0-9,]/g, "");
+                                                            setPrecos(prev => ({ ...prev, [item.id]: cleaned }));
+                                                        }}
+                                                        onBlur={async () => {
+                                                            const value = precos[item.id];
+                                                            if (value === undefined) return;
+                                                            const preco = parseFloat(value.replace(",", ".")) || null;
+                                                            await supabase.from("items").update({ preco }).eq("id", item.id);
+                                                            fetchItems();
+                                                        }}
+                                                        keyboardType="numeric"
+                                                        placeholder="0,00"
+                                                        placeholderTextColor="#C5C0B8"
+                                                        style={{ flex: 1, padding: 6, fontSize: 13, color: "#2A2A2A" }}
+                                                    />
+                                                </View>
+                                            </TouchableOpacity>
+                                        )}
                                     </TouchableOpacity>
                                 ))}
                             </View>

@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# idea
+.idea/
+
 # Expo
 .expo/
 dist/
@@ -40,7 +43,3 @@ yarn-error.*
 # generated native folders
 /ios
 /android
-
-# llm context
-CONTEXT.md
-

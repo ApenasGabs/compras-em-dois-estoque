@@ -1,5 +1,5 @@
 import React, {useCallback, useState} from "react";
-import { View, Text, TouchableOpacity, Alert, ScrollView } from "react-native";
+import {View, Text, TouchableOpacity, Alert, ScrollView, Platform} from "react-native";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useGroupStore } from "../../stores/useGroupStore";
 import * as Clipboard from "expo-clipboard";
@@ -130,13 +130,19 @@ export default function Profile() {
     }
 
     async function handleSignOut() {
-        Alert.alert("Sair", "Tem certeza que deseja sair?", [
-            { text: "Cancelar", style: "cancel" },
-            { text: "Sair", style: "destructive", onPress: async () => {
-                    clearGroup();
-                    await signOut();
-                }},
-        ]);
+        const confirmed = Platform.OS === "web"
+            ? window.confirm("Tem certeza que deseja sair?")
+            : await new Promise(resolve =>
+                Alert.alert("Sair", "Tem certeza que deseja sair?", [
+                    { text: "Cancelar", onPress: () => resolve(false), style: "cancel" },
+                    { text: "Sair", onPress: () => resolve(true), style: "destructive" },
+                ])
+            );
+
+        if (confirmed) {
+            clearGroup();
+            await signOut();
+        }
     }
 
     return (

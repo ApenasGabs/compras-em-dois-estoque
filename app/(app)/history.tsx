@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from "react";
+import React, {useCallback, useState} from "react";
 import { View, Text, TouchableOpacity, FlatList, ActivityIndicator } from "react-native";
 import { supabase } from "../../lib/supabase";
 import { useGroupStore } from "../../stores/useGroupStore";
@@ -17,6 +17,7 @@ interface ShoppingList {
     titulo: string;
     finalizada_em: string;
     items: Item[];
+    total: number | null;
 }
 
 export default function History() {
@@ -35,7 +36,7 @@ export default function History() {
     async function fetchHistory() {
         const { data } = await supabase
             .from("shopping_lists")
-            .select("id, titulo, finalizada_em, items(*)")
+            .select("id, titulo, finalizada_em, total, items(*)")
             .eq("group_id", groupId)
             .eq("ativa", false)
             .order("finalizada_em", { ascending: false });
@@ -87,9 +88,16 @@ export default function History() {
                                 <Text style={{ fontSize: 15, fontWeight: "600", color: "#2A2A2A" }}>
                                     {formatDate(list.finalizada_em)}
                                 </Text>
-                                <Text style={{ fontSize: 13, color: "#9A9590", marginTop: 2 }}>
-                                    {list.items.length} {list.items.length === 1 ? "item" : "itens"}
-                                </Text>
+                                <View style={{ flexDirection: "row", gap: 8, marginTop: 2 }}>
+                                    <Text style={{ fontSize: 13, color: "#9A9590" }}>
+                                        {list.items.length} {list.items.length === 1 ? "item" : "itens"}
+                                    </Text>
+                                    {list.total && (
+                                        <Text style={{ fontSize: 13, color: "#7C9E87", fontWeight: "600" }}>
+                                            · R$ {list.total.toFixed(2).replace(".", ",")}
+                                        </Text>
+                                    )}
+                                </View>
                             </View>
                             <Text style={{ fontSize: 18, color: "#9A9590" }}>
                                 {expanded === list.id ? "▲" : "▼"}
