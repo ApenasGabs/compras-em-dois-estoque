@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "compras-em-dois",
+    "name": "Compras em Dois",
     "slug": "compras-em-dois",
     "version": "1.0.0",
-    "scheme": "comprasembois",
+    "scheme": "comprasemdois",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
