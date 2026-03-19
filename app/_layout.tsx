@@ -5,6 +5,8 @@ import { Session } from "@supabase/supabase-js";
 import { View, ActivityIndicator } from "react-native";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useGroupStore } from "../stores/useGroupStore";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import Toast from "react-native-toast-message";
 
 export default function RootLayout() {
     const [session, setSession] = useState<Session | null>(null);
@@ -46,6 +48,14 @@ export default function RootLayout() {
         }
     }
 
+    async function checkSession() {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            useGroupStore.getState().clearGroup();
+            useAuthStore.getState().clearUser();
+        }
+    }
+
     useEffect(() => {
 
         let initialized = false;
@@ -67,6 +77,8 @@ export default function RootLayout() {
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             if (!initialized) return;
+
+            if (_event === "TOKEN_REFRESHED") return;
 
             setSession(session);
 
@@ -122,6 +134,9 @@ export default function RootLayout() {
     }
 
     return (
-        <Stack screenOptions={{ headerShown: false }} />
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <Stack screenOptions={{ headerShown: false }} />
+            <Toast />
+        </GestureHandlerRootView>
     );
 }

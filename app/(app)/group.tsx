@@ -10,6 +10,7 @@ import { useGroupStore } from "../../stores/useGroupStore";
 import { generateInviteCode } from "../../lib/generateCode";
 import * as Clipboard from "expo-clipboard";
 import {trackAction} from "../../lib/rateLimit";
+import {handleError, showInfo, showSuccess} from "../../lib/handleError";
 
 export default function Group() {
     const [step, setStep] = useState<"menu" | "create" | "join">("menu");
@@ -34,7 +35,7 @@ export default function Group() {
 
     async function handleCreateGroup() {
         if (!groupName.trim()) {
-            Alert.alert("Atenção", "Digite um nome para o grupo.");
+            showInfo("Digite um nome para o grupo.");
             return;
         }
         setLoading(true);
@@ -81,7 +82,7 @@ export default function Group() {
 
     async function handleJoinGroup() {
         if (!inviteCode.trim()) {
-            Alert.alert("Atenção", "Digite o código do grupo.");
+            showInfo("Digite o código do grupo.");
             return;
         }
         setLoading(true);
@@ -94,7 +95,7 @@ export default function Group() {
             .single();
 
         if (error || !group) {
-            Alert.alert("Erro", "Grupo não encontrado. Verifique o código.");
+            handleError(null, "Grupo não encontrado. Verifique o código.");
             setLoading(false);
             return;
         }
@@ -107,8 +108,7 @@ export default function Group() {
             .single();
 
         if (existing) {
-            Alert.alert("Atenção", "Você já faz parte deste grupo.");
-            setLoading(false);
+            showInfo("Você já faz parte deste grupo.");
             return;
         }
 
@@ -155,6 +155,7 @@ export default function Group() {
                     <TouchableOpacity
                         onPress={async () => {
                             await Clipboard.setStringAsync(createdCode!);
+                            showSuccess("Código copiado!");
                         }}
                         style={{ marginTop: 8, alignItems: "center" }}
                     >

@@ -7,6 +7,8 @@ import { supabase } from "../../lib/supabase";
 import { useGroupStore } from "../../stores/useGroupStore";
 import { useAuthStore } from "../../stores/useAuthStore";
 import AddItemModal from "../../components/addItemModal";
+import {handleError, showInfo, showSuccess} from "../../lib/handleError";
+import {Swipeable} from "react-native-gesture-handler";
 
 interface Item {
     id: string;
@@ -42,10 +44,58 @@ export default function List() {
     useEffect(() => {
         if (!listId) return;
         fetchItems();
-        const cleanup = subscribeToItems();
-        return cleanup;
+
+        const channel = supabase
+            .channel("list-channel")
+            .on("postgres_changes", {
+                event: "*",
+                schema: "public",
+                table: "items",
+                filter: `list_id=eq.${listId}`,
+            }, () => {
+                fetchItems();
+            })
+            .on("postgres_changes", {
+                event: "UPDATE",
+                schema: "public",
+                table: "shopping_lists",
+                filter: `id=eq.${listId}`,
+            }, async (payload: any) => {
+                if (payload.new.ativa === false) {
+                    const { data: newList } = await supabase
+                        .from("shopping_lists")
+                        .select("id")
+                        .eq("group_id", useGroupStore.getState().groupId)
+                        .eq("ativa", true)
+                        .single();
+
+                    if (newList) {
+                        useGroupStore.getState().setListId(newList.id);
+                    }
+                }
+            })
+            .subscribe();
+
+        return () => supabase.removeChannel(channel);
     }, [listId]);
 
+    function renderRightActions(id: string) {
+        return (
+            <TouchableOpacity
+                onPress={() => handleDeleteItem(id)}
+                style={{
+                    backgroundColor: "#D4614A",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    width: 80,
+                    borderRadius: 14,
+                    marginLeft: 8,
+                }}
+            >
+                <Text style={{ color: "white", fontSize: 13, fontWeight: "600" }}>Remover</Text>
+            </TouchableOpacity>
+        );
+    }
 
     async function fetchItems() {
         const { data } = await supabase
@@ -70,62 +120,49 @@ export default function List() {
 
     async function handleFinishShopping() {
         if (items.length === 0) {
-            Alert.alert("Lista vazia", "Adicione itens antes de finalizar a compra.");
+            showInfo("Adicione itens antes de finalizar.");
             return;
         }
 
         Alert.alert(
             "Finalizar compra",
-            "Os itens comprados serão arquivados e a lista será resetada.",
+            "Os itens serão arquivados e a lista será resetada.",
             [
                 { text: "Cancelar", style: "cancel" },
                 { text: "Finalizar", onPress: async () => {
-                        const { groupId } = useGroupStore.getState();
+                        try {
+                            const { groupId } = useGroupStore.getState();
+                            const total = items
+                                .filter(i => i.preco !== null)
+                                .reduce((sum, i) => sum + (i.preco ?? 0), 0);
 
-                        // Calcula total dos itens que têm preço
-                        const total = items
-                            .filter(i => i.preco !== null)
-                            .reduce((sum, i) => sum + (i.preco ?? 0), 0);
+                            await supabase
+                                .from("shopping_lists")
+                                .update({
+                                    ativa: false,
+                                    finalizada_em: new Date().toISOString(),
+                                    total: total > 0 ? total : null,
+                                })
+                                .eq("id", listId);
 
-                        await supabase
-                            .from("shopping_lists")
-                            .update({
-                                ativa: false,
-                                finalizada_em: new Date().toISOString(),
-                                total: total > 0 ? total : null,
-                            })
-                            .eq("id", listId);
+                            const { data: newList } = await supabase
+                                .from("shopping_lists")
+                                .insert({ group_id: groupId, titulo: "Lista da semana", ativa: true })
+                                .select()
+                                .single();
 
-                        const { data: newList } = await supabase
-                            .from("shopping_lists")
-                            .insert({ group_id: groupId, titulo: "Lista da semana", ativa: true })
-                            .select()
-                            .single();
-
-                        if (newList) {
-                            useGroupStore.getState().setListId(newList.id);
-                            setItems([]);
-                            setPrecos({});
+                            if (newList) {
+                                useGroupStore.getState().setListId(newList.id);
+                                setItems([]);
+                                setPrecos({});
+                                showSuccess("Compra finalizada!");
+                            }
+                        } catch (e) {
+                            handleError(e);
                         }
                     }},
             ]
         );
-    }
-
-    function subscribeToItems() {
-        const channel = supabase
-            .channel("items-channel")
-            .on("postgres_changes", {
-                event: "*",
-                schema: "public",
-                table: "items",
-                filter: `list_id=eq.${listId}`,
-            }, () => {
-                fetchItems();
-            })
-            .subscribe();
-
-        return () => supabase.removeChannel(channel);
     }
 
     async function handleAddItem() {
@@ -152,13 +189,12 @@ export default function List() {
     }
 
     async function handleDeleteItem(id: string) {
-        Alert.alert("Remover item", "Tem certeza?", [
-            { text: "Cancelar", style: "cancel" },
-            { text: "Remover", style: "destructive", onPress: async () => {
-                    await supabase.from("items").delete().eq("id", id);
-                    fetchItems();
-                }},
-        ]);
+        try {
+            await supabase.from("items").delete().eq("id", id);
+            fetchItems();
+        } catch (e) {
+            handleError(e);
+        }
     }
 
     const filteredItems = selectedCategory === "Todos"
@@ -246,18 +282,20 @@ export default function List() {
                             {/* Itens da categoria */}
                             <View style={{ gap: 6 }}>
                                 {categoryItems.map(item => (
-                                    <TouchableOpacity
+                                    <Swipeable
                                         key={item.id}
-                                        onPress={() => handleToggleItem(item)}
-                                        onLongPress={() => handleDeleteItem(item.id)}
-                                        style={{
-                                            backgroundColor: item.comprado ? "rgba(124,158,135,0.08)" : "white",
-                                            borderRadius: 14,
-                                            padding: 14,
-                                            borderWidth: 1.5,
-                                            borderColor: item.comprado ? "rgba(124,158,135,0.2)" : "transparent",
-                                        }}
+                                        renderRightActions={() => renderRightActions(item.id)}
                                     >
+                                        <TouchableOpacity
+                                            onPress={() => handleToggleItem(item)}
+                                            style={{
+                                                backgroundColor: item.comprado ? "rgba(124,158,135,0.08)" : "white",
+                                                borderRadius: 14,
+                                                padding: 14,
+                                                borderWidth: 1.5,
+                                                borderColor: item.comprado ? "rgba(124,158,135,0.2)" : "transparent",
+                                            }}
+                                        >
                                         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                                             <View style={{
                                                 width: 22, height: 22, borderRadius: 11,
@@ -310,9 +348,10 @@ export default function List() {
                                                         style={{ flex: 1, padding: 6, fontSize: 13, color: "#2A2A2A" }}
                                                     />
                                                 </View>
-                                            </TouchableOpacity>
+                                                </TouchableOpacity>
                                         )}
                                     </TouchableOpacity>
+                                    </Swipeable>
                                 ))}
                             </View>
                         </View>

@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { useGroupStore } from "../stores/useGroupStore";
 import { useAuthStore } from "../stores/useAuthStore";
 import {trackAction} from "../lib/rateLimit";
+import {handleError} from "../lib/handleError";
 
 const CATEGORIES = [
     { emoji: "🥦", name: "Hortifruti" },
@@ -63,7 +64,7 @@ export default function AddItemModal({ visible, onClose, onAdded, initialName = 
         try {
             await trackAction("add_item");
 
-            await supabase.from("items").insert({
+            const { error } = await supabase.from("items").insert({
                 list_id: listId,
                 nome: nome.trim(),
                 quantidade: `${quantidade} ${unidade}`,
@@ -72,14 +73,19 @@ export default function AddItemModal({ visible, onClose, onAdded, initialName = 
                 criado_por: userId,
             });
 
+            if (error) {
+                handleError(error);
+                return;
+            }
+
             setNome("");
             setQuantidade("1");
             setUnidade("un");
             setCategoria("Outros");
             onAdded();
             onClose();
-        } catch (e: any) {
-            Alert.alert("Erro", e.message);
+        } catch (e) {
+            handleError(e);
         } finally {
             setLoading(false);
         }

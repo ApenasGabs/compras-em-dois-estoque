@@ -5,6 +5,7 @@ import { useGroupStore } from "../../stores/useGroupStore";
 import * as Clipboard from "expo-clipboard";
 import { supabase } from "../../lib/supabase";
 import {useFocusEffect, useRouter} from "expo-router";
+import {handleError, showSuccess} from "../../lib/handleError";
 
 export default function Profile() {
     const { userName, signOut } = useAuthStore();
@@ -67,6 +68,7 @@ export default function Profile() {
     async function handleCopyCode() {
         if (!groupCode) return;
         await Clipboard.setStringAsync(groupCode);
+        showSuccess("Código copiado!");
     }
 
     async function handleLeaveGroup(group: { id: string; nome: string; codigo_convite: string }) {
@@ -85,7 +87,7 @@ export default function Profile() {
                             .eq("user_id", userId);
 
                         if (error) {
-                            Alert.alert("Erro", error.message);
+                            handleError(error);
                             return;
                         }
 
@@ -140,8 +142,12 @@ export default function Profile() {
             );
 
         if (confirmed) {
-            clearGroup();
-            await signOut();
+            try {
+                clearGroup();
+                await signOut();
+            } catch (e) {
+                handleError(e);
+            }
         }
     }
 
