@@ -8,7 +8,7 @@ import { Input } from "../components/Input/Input";
 import { StockHistoryModal } from "../components/StockHistoryModal";
 import { StockItemModal } from "../components/StockItemModal";
 import { Textarea } from "../components/Textarea/Textarea";
-import { parseStockImportText, type StockImportSource } from "../domain/stockImportParser";
+import { parseStockImportText, type ParsedStockImportItem, type StockImportSource } from "../domain/stockImportParser";
 import { useWakeLock } from "../hooks/useWakeLock";
 import { supabase } from "../lib/supabase";
 import {
@@ -103,6 +103,7 @@ export const StockPage = () => {
   const [importing, setImporting] = useState(false);
 
   const wakeLock = useWakeLock();
+  const { isSupported: wakeLockIsSupported, request: requestWakeLock, release: releaseWakeLock } = wakeLock;
 
   useEffect(() => {
     if (!groupId) return;
@@ -154,14 +155,14 @@ export const StockPage = () => {
   }, [clearStock, groupId]);
 
   useEffect(() => {
-    if (!wakeLock.isSupported) return;
+    if (!wakeLockIsSupported) return;
 
     if (keepScreenOn) {
-      void wakeLock.request();
+      void requestWakeLock();
     } else {
-      void wakeLock.release();
+      void releaseWakeLock();
     }
-  }, [keepScreenOn, wakeLock]);
+  }, [keepScreenOn, wakeLockIsSupported, requestWakeLock, releaseWakeLock]);
 
   useEffect(() => {
     if (!lastAutoAddedItemName) return;
@@ -277,29 +278,43 @@ export const StockPage = () => {
         ]),
       );
 
+      const combinedByKey = new Map<
+        string,
+        { existing: StockItemRecord | undefined; totalQuantidade: number; parsed: ParsedStockImportItem }
+      >();
+
       for (const parsed of parsedItems) {
         const key = `${parsed.nome.trim().toLowerCase()}::${parsed.unidade.toLowerCase()}`;
         const existing = existingByKey.get(key);
-
-        const payload: UpsertStockItemInput = {
-          id: existing?.id,
-          groupId,
-          nome: parsed.nome,
-          categoria: existing?.categoria ?? parsed.categoria,
-          unidade: parsed.unidade,
-          quantidade: (existing?.quantidade ?? 0) + parsed.quantidade,
-          quantidadeMinima: existing?.quantidade_minima ?? 0,
-          tamanhoPorcao: existing?.tamanho_porcao ?? 1,
-          autoAdicionarLista: existing?.auto_adicionar_lista ?? false,
-          consumoFrequencia: existing?.consumo_frequencia ?? "weekly",
-          consumoValor: existing?.consumo_valor ?? 0,
-          dataCompra: todayDate,
-          dataValidade: existing?.data_validade ?? null,
-        };
-
-        const saved = await upsertItem(payload);
-        existingByKey.set(key, saved);
+        const current = combinedByKey.get(key);
+        combinedByKey.set(key, {
+          existing: current?.existing ?? existing,
+          totalQuantidade: (current?.totalQuantidade ?? existing?.quantidade ?? 0) + parsed.quantidade,
+          parsed,
+        });
       }
+
+      await Promise.all(
+        [...combinedByKey.values()].map(async ({ existing, totalQuantidade, parsed }) => {
+          const payload: UpsertStockItemInput = {
+            id: existing?.id,
+            groupId,
+            nome: parsed.nome,
+            categoria: existing?.categoria ?? parsed.categoria,
+            unidade: parsed.unidade,
+            quantidade: totalQuantidade,
+            quantidadeMinima: existing?.quantidade_minima ?? 0,
+            tamanhoPorcao: existing?.tamanho_porcao ?? 1,
+            autoAdicionarLista: existing?.auto_adicionar_lista ?? false,
+            consumoFrequencia: existing?.consumo_frequencia ?? "weekly",
+            consumoValor: existing?.consumo_valor ?? 0,
+            dataCompra: todayDate,
+            dataValidade: existing?.data_validade ?? null,
+          };
+
+          await upsertItem(payload);
+        }),
+      );
 
       setImportText("");
       setImportModalOpen(false);

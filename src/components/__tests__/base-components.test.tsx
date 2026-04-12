@@ -214,7 +214,9 @@ describe("FeatureCard Component", () => {
 describe("Footer Component", () => {
   it("renders footer text and link", () => {
     render(<Footer />);
-    expect(screen.getByText("Feito com muito ❤️ por")).toBeInTheDocument();
+    const footer = screen.getByRole("contentinfo");
+    expect(footer).toHaveTextContent("Feito com muito");
+    expect(footer).toHaveTextContent("por");
     const link = screen.getByText("ApenasGabs") as HTMLAnchorElement;
     expect(link.href).toContain("github.com/apenasgabs");
   });

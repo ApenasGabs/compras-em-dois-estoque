@@ -152,9 +152,18 @@ export const useStockStore = create<StockState>()(
                 items: sortByName(refreshedItems),
                 lastAutoAddedItemName: movementResult.autoAddedToList ? pending.itemName : null,
               });
-            } catch {
-              const refreshedItems = await getStockItems(pending.groupId);
-              set({ items: sortByName(refreshedItems) });
+            } catch (error) {
+              try {
+                const refreshedItems = await getStockItems(pending.groupId);
+                set({ items: sortByName(refreshedItems) });
+              } catch (refreshError) {
+                console.error("Failed to refresh stock items after movement write failure.", {
+                  error,
+                  refreshError,
+                  itemId: pending.itemId,
+                  groupId: pending.groupId,
+                });
+              }
             }
           })();
         }, STOCK_WRITE_DEBOUNCE_MS);

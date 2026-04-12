@@ -43,9 +43,6 @@ create index if not exists idx_stock_items_data_validade on public.stock_items(d
 create index if not exists idx_stock_movements_item_id on public.stock_movements(item_id);
 create index if not exists idx_stock_movements_criado_em on public.stock_movements(criado_em desc);
 
-alter table public.stock_items add column if not exists data_compra date;
-alter table public.stock_items add column if not exists data_validade date;
-
 create or replace function public.set_atualizado_em_stock_items()
 returns trigger
 language plpgsql

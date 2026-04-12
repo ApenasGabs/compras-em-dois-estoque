@@ -39,15 +39,20 @@ export const useWakeLock = (): UseWakeLockReturn => {
 
   const request = useCallback(async (): Promise<void> => {
     if (!isSupported) return;
+    if (sentinelRef.current && !sentinelRef.current.released) return;
 
     const wakeLockApi = (navigator as NavigatorWithWakeLock).wakeLock;
     if (!wakeLockApi) return;
 
     try {
-      sentinelRef.current = await wakeLockApi.request("screen");
+      const sentinel = await wakeLockApi.request("screen");
+      sentinelRef.current = sentinel;
       setIsActive(true);
 
-      sentinelRef.current.addEventListener("release", () => {
+      sentinel.addEventListener("release", () => {
+        if (sentinelRef.current === sentinel) {
+          sentinelRef.current = null;
+        }
         setIsActive(false);
       });
     } catch {

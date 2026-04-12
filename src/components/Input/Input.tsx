@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 
-type InputStyle = "default" | "ghost";
+type InputStyle = "default" | "ghost" | "bordered";
 type InputColor =
   | "neutral"
   | "primary"
@@ -48,6 +48,7 @@ export const Input = ({
   const styleClasses: Record<InputStyle, string> = {
     default: "",
     ghost: "input-ghost",
+    bordered: "input-bordered",
   };
 
   const colorClasses: Record<InputColor, string> = {
@@ -69,7 +70,8 @@ export const Input = ({
     xl: "input-xl",
   };
 
-  const resolvedStyleVariant: InputStyle = variant === "faded" ? "ghost" : styleVariant;
+  const resolvedStyleVariant: InputStyle =
+    variant === "faded" ? "ghost" : variant === "bordered" ? "bordered" : styleVariant;
   const styleClass = styleClasses[resolvedStyleVariant];
   const sizeClass = sizeClasses[size] || sizeClasses.md;
   const colorClass = color ? colorClasses[color] : "";

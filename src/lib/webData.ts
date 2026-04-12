@@ -469,11 +469,13 @@ export const autoAddToShoppingList = async (
   const list = await ensureActiveListForGroup(groupId);
   const normalizedName = normalizeStockText(itemName);
 
+  const escapedName = normalizedName.replace(/%/g, "\\%").replace(/_/g, "\\_");
+
   const { data: existing, error: existingError } = await supabase
     .from("items")
     .select("id")
     .eq("list_id", list.id)
-    .ilike("nome", normalizedName)
+    .ilike("nome", escapedName)
     .limit(1);
 
   if (existingError) throw new Error(existingError.message);
@@ -651,7 +653,11 @@ export const recordStockMovement = async (
   if (!item) throw new Error("Item de estoque nao encontrado");
 
   const nextQuantity =
-    input.tipo === "entrada" ? item.quantidade + quantity : Math.max(0, item.quantidade - quantity);
+    input.tipo === "entrada"
+      ? item.quantidade + quantity
+      : input.tipo === "ajuste"
+        ? Math.max(0, quantity)
+        : Math.max(0, item.quantidade - quantity);
 
   const { error: updateError } = await supabase
     .from("stock_items")
