@@ -1,116 +1,106 @@
 ## Compras em Dois
 
-Aplicativo móvel em React Native (Expo) para gerenciar **listas de compras compartilhadas em tempo real** entre duas (ou mais) pessoas, usando autenticação e sincronização via **Supabase**.
+Aplicacao **web (PWA-ready)** para gerenciar listas de compras compartilhadas em tempo real, com autenticacao e sincronizacao via **Supabase**.
 
 ### Funcionalidades
 
-- **Autenticação com Supabase**: cadastro, login e logout seguros.
-- **Grupos de compra**:
-  - Criação de grupo com código de convite.
-  - Entrada em grupo existente via código (`group.tsx`).
-  - Código de convite copiável no perfil.
-- **Lista ao vivo da semana**:
-  - Adição rápida de itens ou via modal detalhado com categoria e quantidade.
-  - Marcação de itens como comprados / não comprados em tempo real.
-  - Sugestões de itens frequentes.
-  - Finalização da compra que arquiva a lista atual e cria uma nova lista ativa.
-- **Histórico de compras**:
-  - Visualização das listas finalizadas do grupo, com data e itens.
-- **Perfil**:
-  - Exibição do nome do usuário.
-  - Dados do grupo atual (nome e código).
+- **Autenticacao com Supabase**: cadastro, login e logout.
+- **Grupos de compra**: criacao de grupo com codigo de convite e entrada por codigo.
+- **Lista ativa**: adicao de itens, marcacao de comprado, atualizacao de preco e exclusao.
+- **Historico**: listas finalizadas com total e itens.
+- **Tempo real**: sincronizacao de mudancas de itens via Realtime.
 
 ### Stack
 
-- **Expo 54** + **React Native 0.81**
-- **React 19** + **expo-router**
-- **Supabase** (`@supabase/supabase-js`) com sessão persistida em `expo-secure-store`
-- **Zustand** para gerenciamento de estado global (auth e grupo)
-- **NativeWind/Tailwind CSS** para estilização
+- **Vite + React + TypeScript**
+- **Supabase** (`@supabase/supabase-js`)
+- **React Router** para navegacao
+- **Zustand** para estado global
 
-### Pré-requisitos
+### Pre-requisitos
 
-- Node.js LTS instalado
-- Expo CLI (opcional, mas recomendado): `npm install -g expo`
-- Projeto Supabase configurado com as tabelas esperadas (`groups`, `group_members`, `shopping_lists`, `items`, etc.)
+- Node.js LTS
+- Projeto Supabase com schema e policies configurados
 
-### Configuração do ambiente
+### Configuracao do ambiente
 
-As credenciais do Supabase são lidas das variáveis de ambiente Expo:
+A aplicacao web usa `import.meta.env`, entao as variaveis precisam existir com prefixo `VITE_`:
 
-- `EXPO_PUBLIC_SUPABASE_URL`
-- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-Crie um arquivo `app.config.js` ou use `app.json` com `expo` e configure essas variáveis seguindo a documentação do Expo (por exemplo via `app.config.js` ou `.env` + `expo-env`).
+Exemplo de arquivo `web/.env.local`:
 
-Exemplo simples usando `app.config.js`:
-
-```js
-export default {
-  expo: {
-    name: "compras-em-dois",
-    slug: "compras-em-dois",
-    extra: {
-      EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    },
-  },
-};
+```env
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-chave-anonima
 ```
 
-Consulte a documentação atual do Expo para a forma exata de passar variáveis de ambiente na versão que você está usando.
+O cliente web le essas variaveis em `web/src/lib/supabase.ts`.
 
-### Instalação
+### Instalacao
 
 ```bash
+cd web
 npm install
 ```
 
-### Execução
+### Execucao
 
-- **Iniciar em modo desenvolvimento**:
+- **Desenvolvimento**:
 
 ```bash
-npm run start
+cd web
+npm run dev
 ```
 
-Depois, escolha rodar em:
+- **Testes**:
 
-- App Expo Go (Android ou iOS) lendo o QR Code.
-- Emulador Android.
-- Simulador iOS (em macOS).
+```bash
+cd web
+npm run test
+```
 
-Scripts úteis (definidos em `package.json`):
+- **Build de producao**:
 
-- `npm run android` – inicia o app diretamente em um dispositivo/emulador Android.
-- `npm run ios` – inicia o app em um simulador iOS.
-- `npm run web` – abre a versão web (limitada) no navegador.
+```bash
+cd web
+npm run build
+```
 
-### Estrutura básica de pastas
+### Estrutura basica
 
-- `app/`
-  - `app/_layout.tsx` – roteamento raiz, controle de sessão e redirecionamentos.
-  - `app/(auth)/login.tsx` e `register.tsx` – telas de autenticação.
-  - `app/(app)/_layout.tsx` – abas principais (`list`, `history`, `profile`).
-  - `app/(app)/list.tsx` – lista de compras ao vivo.
-  - `app/(app)/history.tsx` – histórico de listas finalizadas.
-  - `app/(app)/profile.tsx` – dados do usuário e do grupo.
-  - `app/(app)/group.tsx` – criação/entrada em grupos.
-- `components/addItemModal.tsx` – modal para adicionar item com mais detalhes.
-- `lib/supabase.ts` – inicialização do cliente Supabase.
-- `stores/useAuthStore.ts` – estado global de autenticação.
-- `stores/useGroupStore.ts` – estado global de grupo e lista ativa.
+- `web/src/pages` - paginas de autenticacao, grupo, lista, historico e perfil.
+- `web/src/lib/supabase.ts` - cliente Supabase.
+- `web/src/lib/webData.ts` - camada de operacoes de dados.
+- `web/src/store` - stores de sessao e grupo.
 
-### Notas sobre backend (Supabase)
+### Notas de Supabase
 
-O app assume um schema aproximado com:
+Documentacao detalhada:
 
-- `groups` – grupos de compra (inclui `codigo_convite`).
-- `group_members` – relação entre usuários e grupos.
-- `shopping_lists` – listas de compras (campos `ativa`, `finalizada_em`, etc.).
-- `items` – itens de cada lista (campos `nome`, `quantidade`, `categoria`, `comprado`, `criado_por`, `list_id`).
+- `docs/endpoints.md`
+- `docs/supabase-schema-reconciliation.md` (erros comuns encontrados, SQL de auditoria e SQL idempotente de correcao)
+- `docs/ai-overview.md`
+- `docs/feasibility-selfhost-pwa.md`
+- `docs/web-migration-checklist.md`
 
-Verifique se as políticas de RLS e permissões da sua instância Supabase permitem:
+### PWA baseline
 
-- Usuário autenticado criar/ler/atualizar/deletar apenas dados do seu grupo.
-- Eventos de `postgres_changes` na tabela `items` para a atualização em tempo real.
+Arquivos principais:
+
+- `web/public/manifest.webmanifest`
+- `web/public/sw.js`
+- registro do service worker em `web/src/main.tsx`
+
+Schema principal esperado:
+
+- `groups` - grupos de compra (inclui `codigo_convite`).
+- `group_members` - relacao entre usuarios e grupos.
+- `shopping_lists` - listas de compras (campos `ativa`, `finalizada_em`, etc.).
+- `items` - itens de cada lista (campos `nome`, `quantidade`, `categoria`, `comprado`, `criado_por`, `list_id`).
+
+Verifique se as policies RLS da sua instancia Supabase permitem:
+
+- Usuario autenticado criar/ler/atualizar/deletar apenas dados do seu grupo.
+- Eventos de `postgres_changes` na tabela `items` para atualizacao em tempo real.
