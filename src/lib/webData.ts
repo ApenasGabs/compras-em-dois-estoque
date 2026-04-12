@@ -164,6 +164,7 @@ export interface AddListItemInput {
   nome: string;
   quantidade: string;
   categoria: string;
+  price?: number | null;
   createdBy?: string | null;
 }
 
@@ -173,6 +174,7 @@ export async function addListItem(input: AddListItemInput): Promise<void> {
     nome: input.nome,
     quantidade: input.quantidade,
     categoria: input.categoria,
+    preco: input.price ?? null,
     comprado: false,
     criado_por: input.createdBy ?? null,
   });
@@ -381,3 +383,346 @@ export async function createShoppingListForGroup(groupId: string): Promise<strin
   if (error) throw new Error(error.message);
   return data?.id ?? null;
 }
+
+export type StockFrequency = "daily" | "weekly" | "monthly";
+
+export interface StockItemRecord {
+  id: string;
+  group_id: string;
+  nome: string;
+  categoria: string;
+  unidade: string;
+  quantidade: number;
+  quantidade_minima: number;
+  tamanho_porcao: number;
+  na_lista: boolean;
+  auto_adicionar_lista: boolean;
+  consumo_frequencia: StockFrequency;
+  consumo_valor: number;
+  data_compra: string | null;
+  data_validade: string | null;
+  ultimo_consumo_auto_em: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface StockMovementRecord {
+  id: string;
+  item_id: string;
+  tipo: "entrada" | "saida" | "ajuste" | "consumo_auto";
+  quantidade: number;
+  observacao: string | null;
+  criado_por: string | null;
+  criado_em: string;
+}
+
+export interface UpsertStockItemInput {
+  id?: string;
+  groupId: string;
+  nome: string;
+  categoria: string;
+  unidade: string;
+  quantidade: number;
+  quantidadeMinima: number;
+  tamanhoPorcao: number;
+  autoAdicionarLista: boolean;
+  consumoFrequencia: StockFrequency;
+  consumoValor: number;
+  dataCompra?: string | null;
+  dataValidade?: string | null;
+}
+
+export interface RecordStockMovementInput {
+  itemId: string;
+  tipo: "entrada" | "saida" | "ajuste" | "consumo_auto";
+  quantidade: number;
+  observacao?: string;
+  createdBy?: string | null;
+}
+
+export interface StockConsumptionSummary {
+  averageDaily: number;
+  averageWeekly: number;
+  averageMonthly: number;
+  runoutDays: number | null;
+  consumedLast30Days: number;
+}
+
+const normalizeStockCategory = (categoria: string): string => {
+  const trimmed = categoria.trim();
+  return trimmed.length > 0 ? trimmed : "Outros";
+};
+
+const normalizeStockText = (value: string): string => {
+  return value.trim().replace(/\s+/g, " ");
+};
+
+const toPositiveNumber = (value: number, fallback = 0): number => {
+  if (Number.isNaN(value) || !Number.isFinite(value)) return fallback;
+  return Math.max(0, value);
+};
+
+export const autoAddToShoppingList = async (
+  groupId: string,
+  itemName: string,
+): Promise<boolean> => {
+  const list = await ensureActiveListForGroup(groupId);
+  const normalizedName = normalizeStockText(itemName);
+
+  const { data: existing, error: existingError } = await supabase
+    .from("items")
+    .select("id")
+    .eq("list_id", list.id)
+    .ilike("nome", normalizedName)
+    .limit(1);
+
+  if (existingError) throw new Error(existingError.message);
+  if (existing && existing.length > 0) return false;
+
+  const { error: insertError } = await supabase.from("items").insert({
+    list_id: list.id,
+    nome: normalizedName,
+    quantidade: "1 un",
+    categoria: "Outros",
+    comprado: false,
+  });
+
+  if (insertError) throw new Error(insertError.message);
+  return true;
+};
+
+export const getDailyConsumption = (item: StockItemRecord): number => {
+  const value = toPositiveNumber(item.consumo_valor);
+
+  if (item.consumo_frequencia === "daily") return value;
+  if (item.consumo_frequencia === "weekly") return value / 7;
+  return value / 30;
+};
+
+export const runAutoConsumption = async (
+  groupId: string,
+  createdBy?: string | null,
+): Promise<void> => {
+  const items = await getStockItems(groupId);
+  const now = new Date();
+
+  for (const item of items) {
+    const dailyConsumption = getDailyConsumption(item);
+    if (dailyConsumption <= 0) continue;
+
+    const lastDate = item.ultimo_consumo_auto_em ? new Date(item.ultimo_consumo_auto_em) : null;
+    const lastTimestamp = lastDate?.getTime() ?? 0;
+    const diffMs = Math.max(0, now.getTime() - lastTimestamp);
+    const diffDays = lastTimestamp === 0 ? 1 : Math.floor(diffMs / (24 * 60 * 60 * 1000));
+    if (diffDays <= 0) continue;
+
+    const amountToConsume = dailyConsumption * diffDays;
+    if (amountToConsume <= 0) continue;
+
+    await recordStockMovement({
+      itemId: item.id,
+      tipo: "consumo_auto",
+      quantidade: amountToConsume,
+      observacao: `Consumo automatico de ${diffDays} dia(s)`,
+      createdBy,
+    });
+
+    const { error } = await supabase
+      .from("stock_items")
+      .update({ ultimo_consumo_auto_em: now.toISOString() })
+      .eq("id", item.id);
+
+    if (error) throw new Error(error.message);
+  }
+};
+
+export const getStockItems = async (groupId: string): Promise<StockItemRecord[]> => {
+  const { data, error } = await supabase
+    .from("stock_items")
+    .select(
+      "id, group_id, nome, categoria, unidade, quantidade, quantidade_minima, tamanho_porcao, na_lista, auto_adicionar_lista, consumo_frequencia, consumo_valor, data_compra, data_validade, ultimo_consumo_auto_em, criado_em, atualizado_em",
+    )
+    .eq("group_id", groupId)
+    .order("nome", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as StockItemRecord[];
+};
+
+export const getStockItemById = async (itemId: string): Promise<StockItemRecord | null> => {
+  const { data, error } = await supabase
+    .from("stock_items")
+    .select(
+      "id, group_id, nome, categoria, unidade, quantidade, quantidade_minima, tamanho_porcao, na_lista, auto_adicionar_lista, consumo_frequencia, consumo_valor, data_compra, data_validade, ultimo_consumo_auto_em, criado_em, atualizado_em",
+    )
+    .eq("id", itemId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return (data as StockItemRecord | null) ?? null;
+};
+
+export const upsertStockItem = async (input: UpsertStockItemInput): Promise<StockItemRecord> => {
+  const payload = {
+    id: input.id,
+    group_id: input.groupId,
+    nome: normalizeStockText(input.nome),
+    categoria: normalizeStockCategory(input.categoria),
+    unidade: normalizeStockText(input.unidade),
+    quantidade: toPositiveNumber(input.quantidade),
+    quantidade_minima: toPositiveNumber(input.quantidadeMinima),
+    tamanho_porcao: Math.max(1, toPositiveNumber(input.tamanhoPorcao, 1)),
+    auto_adicionar_lista: input.autoAdicionarLista,
+    consumo_frequencia: input.consumoFrequencia,
+    consumo_valor: toPositiveNumber(input.consumoValor),
+    data_compra: input.dataCompra ?? null,
+    data_validade: input.dataValidade ?? null,
+  };
+
+  const { data, error } = await supabase
+    .from("stock_items")
+    .upsert(payload)
+    .select(
+      "id, group_id, nome, categoria, unidade, quantidade, quantidade_minima, tamanho_porcao, na_lista, auto_adicionar_lista, consumo_frequencia, consumo_valor, data_compra, data_validade, ultimo_consumo_auto_em, criado_em, atualizado_em",
+    )
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Nao foi possivel salvar item de estoque");
+  return data as StockItemRecord;
+};
+
+export const deleteStockItemById = async (itemId: string): Promise<void> => {
+  const { error } = await supabase.from("stock_items").delete().eq("id", itemId);
+  if (error) throw new Error(error.message);
+};
+
+export const getStockMovements = async (
+  itemId: string,
+  limit = 30,
+): Promise<StockMovementRecord[]> => {
+  const { data, error } = await supabase
+    .from("stock_movements")
+    .select("id, item_id, tipo, quantidade, observacao, criado_por, criado_em")
+    .eq("item_id", itemId)
+    .order("criado_em", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as StockMovementRecord[];
+};
+
+export const setStockItemInShoppingList = async (
+  itemId: string,
+  include: boolean,
+): Promise<StockItemRecord> => {
+  const item = await getStockItemById(itemId);
+  if (!item) throw new Error("Item de estoque nao encontrado");
+
+  if (include) {
+    await autoAddToShoppingList(item.group_id, item.nome);
+  }
+
+  const { data, error } = await supabase
+    .from("stock_items")
+    .update({ na_lista: include })
+    .eq("id", itemId)
+    .select(
+      "id, group_id, nome, categoria, unidade, quantidade, quantidade_minima, tamanho_porcao, na_lista, auto_adicionar_lista, consumo_frequencia, consumo_valor, data_compra, data_validade, ultimo_consumo_auto_em, criado_em, atualizado_em",
+    )
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Nao foi possivel atualizar status do item na lista");
+  return data as StockItemRecord;
+};
+
+export interface RecordStockMovementResult {
+  autoAddedToList: boolean;
+}
+
+export const recordStockMovement = async (
+  input: RecordStockMovementInput,
+): Promise<RecordStockMovementResult> => {
+  const quantity = toPositiveNumber(input.quantidade);
+  if (quantity <= 0) throw new Error("Quantidade deve ser maior que zero");
+
+  const item = await getStockItemById(input.itemId);
+  if (!item) throw new Error("Item de estoque nao encontrado");
+
+  const nextQuantity =
+    input.tipo === "entrada" ? item.quantidade + quantity : Math.max(0, item.quantidade - quantity);
+
+  const { error: updateError } = await supabase
+    .from("stock_items")
+    .update({ quantidade: nextQuantity })
+    .eq("id", input.itemId);
+
+  if (updateError) throw new Error(updateError.message);
+
+  const { error: movementError } = await supabase.from("stock_movements").insert({
+    item_id: input.itemId,
+    tipo: input.tipo,
+    quantidade: quantity,
+    observacao: input.observacao ?? null,
+    criado_por: input.createdBy ?? null,
+  });
+
+  if (movementError) throw new Error(movementError.message);
+
+  let autoAddedToList = false;
+
+  const reachedMinimum = nextQuantity <= item.quantidade_minima;
+  if (input.tipo !== "entrada" && item.auto_adicionar_lista && reachedMinimum) {
+    autoAddedToList = await autoAddToShoppingList(item.group_id, item.nome);
+
+    const { error: updateListFlagError } = await supabase
+      .from("stock_items")
+      .update({ na_lista: true })
+      .eq("id", input.itemId);
+
+    if (updateListFlagError) throw new Error(updateListFlagError.message);
+  }
+
+  return { autoAddedToList };
+};
+
+export const getStockConsumptionSummary = async (
+  itemId: string,
+): Promise<StockConsumptionSummary> => {
+  const item = await getStockItemById(itemId);
+  if (!item) {
+    return {
+      averageDaily: 0,
+      averageWeekly: 0,
+      averageMonthly: 0,
+      runoutDays: null,
+      consumedLast30Days: 0,
+    };
+  }
+
+  const date30DaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from("stock_movements")
+    .select("quantidade, tipo, criado_em")
+    .eq("item_id", itemId)
+    .in("tipo", ["saida", "consumo_auto"])
+    .gte("criado_em", date30DaysAgo);
+
+  if (error) throw new Error(error.message);
+
+  const consumedLast30Days = (data ?? []).reduce((sum, movement) => sum + movement.quantidade, 0);
+  const averageDaily = consumedLast30Days / 30;
+  const averageWeekly = averageDaily * 7;
+  const averageMonthly = averageDaily * 30;
+  const runoutDays = averageDaily > 0 ? item.quantidade / averageDaily : null;
+
+  return {
+    averageDaily,
+    averageWeekly,
+    averageMonthly,
+    runoutDays,
+    consumedLast30Days,
+  };
+};

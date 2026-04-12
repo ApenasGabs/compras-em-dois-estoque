@@ -5,7 +5,11 @@ import { Alert } from "../components/Alert/Alert";
 import { Badge } from "../components/Badge/Badge";
 import { Button } from "../components/Button/Button";
 import { Card, CardBody } from "../components/Card/Card";
+import { Input } from "../components/Input/Input";
+import { Textarea } from "../components/Textarea/Textarea";
 import { calculateShoppingTotal, filterItemsByCategory, type ListItem } from "../domain/listRules";
+import { parseShoppingImportText } from "../domain/shoppingImportParser";
+import { type StockImportSource } from "../domain/stockImportParser";
 import { supabase } from "../lib/supabase";
 import {
   addListItem,
@@ -62,6 +66,10 @@ export const ListPage = () => {
   const [draftName, setDraftName] = useState("");
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importSource, setImportSource] = useState<StockImportSource>("auto");
+  const [importing, setImporting] = useState(false);
   const groupId = useGroupStore((state) => state.groupId);
   const groupName = useGroupStore((state) => state.groupName);
   const listId = useGroupStore((state) => state.listId);
@@ -239,7 +247,46 @@ export const ListPage = () => {
     () => filterItemsByCategory(items, selectedCategory),
     [items, selectedCategory],
   );
+
+  const importPreview = useMemo(() => {
+    return parseShoppingImportText(importText, { source: importSource });
+  }, [importSource, importText]);
+
   const total = calculateShoppingTotal(filteredItems);
+
+  const handleImportToList = async (): Promise<void> => {
+    if (!listId || importing) return;
+
+    setError(null);
+    const parsedItems = parseShoppingImportText(importText, { source: importSource });
+
+    if (parsedItems.length === 0) {
+      setError("Nao consegui identificar itens validos no texto para importar na lista.");
+      return;
+    }
+
+    setImporting(true);
+    try {
+      for (const item of parsedItems) {
+        await addListItem({
+          listId,
+          nome: item.nome,
+          quantidade: item.quantidade,
+          categoria: item.categoria,
+          price: item.preco,
+          createdBy: userId,
+        });
+      }
+
+      await refreshItems(listId);
+      setImportText("");
+      setImportModalOpen(false);
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : "Falha ao importar compra");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -294,6 +341,9 @@ export const ListPage = () => {
             <Button type="button" onClick={() => setModalVisible(true)}>
               Novo item
             </Button>
+            <Button type="button" variant="ghost" onClick={() => setImportModalOpen(true)}>
+              Importar compra
+            </Button>
           </div>
 
           {filteredItems.length === 0 ? (
@@ -319,7 +369,7 @@ export const ListPage = () => {
                         <label className="price-label" htmlFor={`price-${item.id}`}>
                           Preço
                         </label>
-                        <input
+                        <Input
                           id={`price-${item.id}`}
                           value={priceDrafts[item.id] ?? formatPrice(item.preco)}
                           onChange={(event: ChangeEvent<HTMLInputElement>) =>
@@ -331,6 +381,7 @@ export const ListPage = () => {
                           onBlur={() => void handleUpdatePrice(item.id)}
                           inputMode="decimal"
                           placeholder="0,00"
+                          size="sm"
                         />
 
                         <div className="actions-row">
@@ -377,7 +428,7 @@ export const ListPage = () => {
       </div>
 
       <div className="row quick-add-row">
-        <input
+        <Input
           value={draftName}
           onChange={(event: ChangeEvent<HTMLInputElement>) => setDraftName(event.target.value)}
           placeholder="Adicao rapida de item"
@@ -403,6 +454,77 @@ export const ListPage = () => {
         onAdd={handleAddItem}
         initialName={draftName}
       />
+
+      {importModalOpen && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setImportModalOpen(false)}
+          role="presentation"
+        >
+          <div
+            className="modal-card card"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="modal-header">
+              <h2>Importar compra para lista</h2>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setImportModalOpen(false)}
+                disabled={importing}
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="form">
+              <Textarea
+                label="Cole o texto da compra"
+                value={importText}
+                onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+                  setImportText(event.target.value)
+                }
+                rows={10}
+                helperText="Importa nome, quantidade e preco total por item quando disponivel."
+              />
+
+              <label className="label flex-col items-start gap-2">
+                <span className="label-text">Origem da compra</span>
+                <select
+                  className="select select-bordered w-full"
+                  value={importSource}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    setImportSource(event.target.value as StockImportSource)
+                  }
+                >
+                  <option value="auto">Detectar automaticamente</option>
+                  <option value="tenda">Tenda</option>
+                  <option value="pague-menos">Pague Menos</option>
+                </select>
+              </label>
+
+              <p className="muted">
+                Itens detectados: {importPreview.length}
+                {importPreview.length > 0
+                  ? ` (${importPreview
+                      .slice(0, 3)
+                      .map((item) => item.nome)
+                      .join(", ")}${importPreview.length > 3 ? ", ..." : ""})`
+                  : ""}
+              </p>
+
+              <Button
+                type="button"
+                onClick={() => void handleImportToList()}
+                disabled={importing || importPreview.length === 0}
+              >
+                {importing ? "Importando..." : "Importar para lista"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 };

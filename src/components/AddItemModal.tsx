@@ -8,6 +8,8 @@ import {
   useState,
 } from "react";
 import { buildQuantityLabel } from "../domain/listRules";
+import { Button } from "./Button/Button";
+import { Input } from "./Input/Input";
 
 const categories = [
   { emoji: "🥦", name: "Hortifruti" },
@@ -31,12 +33,7 @@ interface Props {
   initialName?: string;
 }
 
-export function AddItemModal({
-  visible,
-  onClose,
-  onAdd,
-  initialName = "",
-}: Props) {
+export function AddItemModal({ visible, onClose, onAdd, initialName = "" }: Props) {
   const [nome, setNome] = useState(initialName);
   const [quantidade, setQuantidade] = useState("1");
   const [unidade, setUnidade] = useState("un");
@@ -85,43 +82,31 @@ export function AddItemModal({
       >
         <div className="modal-header">
           <h2>Novo item</h2>
-          <button type="button" className="ghost" onClick={onClose}>
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
             Fechar
-          </button>
+          </Button>
         </div>
 
         <form className="form" onSubmit={handleSubmit}>
-          <label>
-            Nome do produto
-            <input
-              value={nome}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setNome(e.target.value)
-              }
-              autoFocus
-            />
-          </label>
+          <Input
+            label="Nome do produto"
+            value={nome}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setNome(e.target.value)}
+            autoFocus
+          />
 
           <div className="grid two-cols">
-            <label>
-              Quantidade
-              <input
-                value={quantidade}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setQuantidade(e.target.value)
-                }
-                inputMode="numeric"
-              />
-            </label>
-            <label>
-              Unidade
-              <input
-                value={unidade}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setUnidade(e.target.value)
-                }
-              />
-            </label>
+            <Input
+              label="Quantidade"
+              value={quantidade}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setQuantidade(e.target.value)}
+              inputMode="numeric"
+            />
+            <Input
+              label="Unidade"
+              value={unidade}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setUnidade(e.target.value)}
+            />
           </div>
 
           <div>
@@ -143,9 +128,9 @@ export function AddItemModal({
 
           <p className="hint">Quantidade final: {quantityLabel}</p>
 
-          <button type="submit" disabled={saving || !nome.trim()}>
+          <Button type="submit" disabled={saving || !nome.trim()}>
             {saving ? "Adicionando..." : "Adicionar à lista"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

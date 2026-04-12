@@ -12,9 +12,12 @@ import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { StockItemDetailsPage } from "./pages/StockItemDetailsPage";
+import { StockPage } from "./pages/StockPage";
 import { useAuthStore } from "./stores/authStore";
 import { useGroupStore } from "./stores/groupStore";
 import { useSessionStore } from "./stores/sessionStore";
+import { useStockStore } from "./stores/stockStore";
 
 const App = () => {
   const navigate = useNavigate();
@@ -23,6 +26,7 @@ const App = () => {
   const clearUser = useAuthStore((state) => state.clearUser);
   const groupName = useGroupStore((state) => state.groupName);
   const clearAllGroupState = useGroupStore((state) => state.clearAllGroupState);
+  const clearStock = useStockStore((state) => state.clearStock);
   const ready = useSessionStore((state) => state.ready);
 
   const handleLogout = async (): Promise<void> => {
@@ -34,6 +38,7 @@ const App = () => {
 
     clearUser();
     clearAllGroupState();
+    clearStock();
     navigate("/login", { replace: true });
   };
 
@@ -53,6 +58,9 @@ const App = () => {
               </Button>
               <Button variant="ghost" size="sm" onClick={() => navigate("/history")}>
                 Histórico
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/stock")}>
+                Estoque
               </Button>
               <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
                 Perfil
@@ -123,6 +131,26 @@ const App = () => {
             element={
               <RequireAuth>
                 <ProfilePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/stock"
+            element={
+              <RequireAuth>
+                <RequireGroup>
+                  <StockPage />
+                </RequireGroup>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/stock/item/:itemId"
+            element={
+              <RequireAuth>
+                <RequireGroup>
+                  <StockItemDetailsPage />
+                </RequireGroup>
               </RequireAuth>
             }
           />
