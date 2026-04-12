@@ -29,19 +29,18 @@ A aplicacao web usa `import.meta.env`, entao as variaveis precisam existir com p
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
-Exemplo de arquivo `web/.env.local`:
+Exemplo de arquivo `.env.local`:
 
 ```env
 VITE_SUPABASE_URL=https://seu-projeto.supabase.co
 VITE_SUPABASE_ANON_KEY=sua-chave-anonima
 ```
 
-O cliente web le essas variaveis em `web/src/lib/supabase.ts`.
+O cliente web le essas variaveis em `src/lib/supabase.ts`.
 
 ### Instalacao
 
 ```bash
-cd web
 npm install
 ```
 
@@ -50,30 +49,27 @@ npm install
 - **Desenvolvimento**:
 
 ```bash
-cd web
 npm run dev
 ```
 
 - **Testes**:
 
 ```bash
-cd web
 npm run test
 ```
 
 - **Build de producao**:
 
 ```bash
-cd web
 npm run build
 ```
 
 ### Estrutura basica
 
-- `web/src/pages` - paginas de autenticacao, grupo, lista, historico e perfil.
-- `web/src/lib/supabase.ts` - cliente Supabase.
-- `web/src/lib/webData.ts` - camada de operacoes de dados.
-- `web/src/store` - stores de sessao e grupo.
+- `src/pages` - paginas de autenticacao, grupo, lista, historico e perfil.
+- `src/lib/supabase.ts` - cliente Supabase.
+- `src/lib/webData.ts` - camada de operacoes de dados.
+- `src/stores` - stores de sessao, auth e grupo.
 
 ### Notas de Supabase
 
@@ -89,9 +85,9 @@ Documentacao detalhada:
 
 Arquivos principais:
 
-- `web/public/manifest.webmanifest`
-- `web/public/sw.js`
-- registro do service worker em `web/src/main.tsx`
+- `public/manifest.webmanifest`
+- `public/sw.js`
+- registro do service worker em `src/main.tsx`
 
 Schema principal esperado:
 

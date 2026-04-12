@@ -424,14 +424,14 @@ git commit -m "build: 📦 adiciona eslint-plugin-tailwindcss"
    ```
 
 3. **Fazer pull** - Sincronize com o remoto ANTES de commitar
-
+   
    ```bash
    # Se estiver trabalhando em uma feature branch
    git pull origin feature/minha-feature
-
+   
    # Se estiver na develop
    git pull origin develop
-
+   
    # Com rebase se houver conflitos
    git pull --rebase origin feature/minha-feature
    ```
