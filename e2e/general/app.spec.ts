@@ -1,46 +1,81 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-test.describe("App - Page Load", () => {
-  test("should load the app successfully", async ({ page }) => {
-    await page.goto("/");
+const e2eEmail = process.env.E2E_EMAIL ?? "";
+const e2ePassword = process.env.E2E_PASSWORD ?? "";
 
-    // Verificar se o título está visível
-    const title = page.getByTestId("main-title");
-    await expect(title).toBeVisible();
-    await expect(title).toContainText("Vite + React + TypeScript");
+const ensureOnListPage = async (page: Page): Promise<void> => {
+  await page.goto("/list");
+
+  if (page.url().includes("/list")) {
+    return;
+  }
+
+  await expect(page).toHaveURL(/\/group$/);
+
+  const useButtons = page.getByRole("button", { name: "Usar" });
+  if ((await useButtons.count()) > 0) {
+    await useButtons.first().click();
+    await expect(page).toHaveURL(/\/list$/);
+    return;
+  }
+
+  const groupNameInput = page.locator("input[type='text']").first();
+  await groupNameInput.fill(`Grupo E2E ${Date.now()}`);
+  await page.getByRole("button", { name: /^Criar$/ }).click();
+
+  const goToListButton = page.getByRole("button", { name: "Ir para a lista" });
+  if ((await goToListButton.count()) > 0) {
+    await goToListButton.first().click();
+  } else {
+    await page.goto("/list");
+  }
+
+  await expect(page).toHaveURL(/\/list$/);
+};
+
+const loginWithCredentials = async (page: Page): Promise<void> => {
+  await page.goto("/login");
+  await page.locator("input[type='email']").fill(e2eEmail);
+  await page.locator("input[type='password']").fill(e2ePassword);
+  await page.getByRole("button", { name: /^Entrar$/ }).click();
+  await expect(page).toHaveURL(/\/(group|list)$/);
+};
+
+test.describe("Fluxo funcional - auth e lista", () => {
+  test("deve proteger rota /list sem sessao", async ({ page }) => {
+    await page.goto("/list");
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole("heading", { name: "Compras em Dois" })).toBeVisible();
   });
 
-  test("should display navbar with correct title", async ({ page }) => {
-    await page.goto("/");
-
-    // Verificar navbar
-    const navbarTitle = page.getByTestId("navbar-title");
-    await expect(navbarTitle).toBeVisible();
-    await expect(navbarTitle).toContainText("Apenas Template");
-  });
-
-  test("should display hero section content", async ({ page }) => {
-    await page.goto("/");
-
-    // Verificar se as imagens do Vite e React estão visíveis
-    const viteImg = page.getByTestId("vite-logo");
-    const reactImg = page.getByTestId("react-logo");
-    await expect(viteImg).toBeVisible();
-    await expect(reactImg).toBeVisible();
-
-    // Verificar descrição
-    const description = page.getByTestId("main-description");
-    await expect(description).toBeVisible();
-  });
-
-  test("should display footer", async ({ page }) => {
-    await page.goto("/");
-
-    // Verificar footer
-    const footer = page.locator(".footer");
-    await expect(footer).toBeVisible();
-    await expect(footer).toContainText(
-      "Template React + TypeScript + Vite + Tailwind CSS + daisyUI",
+  test("deve manter contexto apos reload em /list", async ({ page }) => {
+    test.skip(
+      !e2eEmail || !e2ePassword,
+      "Defina E2E_EMAIL e E2E_PASSWORD para executar este teste",
     );
+
+    await loginWithCredentials(page);
+    await ensureOnListPage(page);
+
+    await expect(page.getByRole("heading", { name: "Lista" })).toBeVisible();
+    await page.reload();
+
+    await expect(page).toHaveURL(/\/list$/);
+    await expect(page.getByRole("heading", { name: "Lista" })).toBeVisible();
+  });
+
+  test("deve permitir logout pela navbar", async ({ page }) => {
+    test.skip(
+      !e2eEmail || !e2ePassword,
+      "Defina E2E_EMAIL e E2E_PASSWORD para executar este teste",
+    );
+
+    await loginWithCredentials(page);
+    await ensureOnListPage(page);
+
+    await page.getByRole("button", { name: "Sair" }).click();
+
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole("heading", { name: "Compras em Dois" })).toBeVisible();
   });
 });
