@@ -8,7 +8,7 @@ import { Input } from "../components/Input/Input";
 import { supabase } from "../lib/supabase";
 import { restoreGroupContext } from "../lib/webData";
 import { useAuthStore } from "../stores/authStore";
-import { useGroupStore } from "../stores/groupStore";
+import { getPersistedGroupSnapshot, useGroupStore } from "../stores/groupStore";
 
 export function RegisterPage() {
   const [name, setName] = useState("");
@@ -38,26 +38,48 @@ export function RegisterPage() {
     if (data.user) {
       useAuthStore
         .getState()
-        .setUser(
-          data.user.id,
-          data.user.user_metadata?.nome ?? data.user.email ?? "",
-        );
+        .setUser(data.user.id, data.user.user_metadata?.nome ?? data.user.email ?? "");
+      const persistedSnapshot = getPersistedGroupSnapshot();
 
       const context = await restoreGroupContext(
         data.user.id,
-        useGroupStore.getState().groupId,
+        useGroupStore.getState().groupId ??
+          useGroupStore.getState().lastGroupId ??
+          persistedSnapshot?.lastGroupId ??
+          persistedSnapshot?.groupId ??
+          null,
       );
-      useGroupStore.getState().setAllGroups(context.groups);
+      useGroupStore
+        .getState()
+        .setAllGroups(
+          context.groups.length > 0 ? context.groups : (persistedSnapshot?.allGroups ?? []),
+        );
 
       if (context.group) {
         useGroupStore
           .getState()
-          .setGroup(
-            context.group.id,
-            context.group.nome,
-            context.group.codigo_convite,
+          .setGroup(context.group.id, context.group.nome, context.group.codigo_convite);
+        useGroupStore
+          .getState()
+          .setListId(
+            context.listId ?? persistedSnapshot?.lastListId ?? persistedSnapshot?.listId ?? null,
           );
-        useGroupStore.getState().setListId(context.listId);
+        navigate("/list");
+      } else if (
+        persistedSnapshot?.lastGroupId &&
+        persistedSnapshot.groupName &&
+        persistedSnapshot.groupCode
+      ) {
+        useGroupStore
+          .getState()
+          .setGroup(
+            persistedSnapshot.lastGroupId,
+            persistedSnapshot.groupName,
+            persistedSnapshot.groupCode,
+          );
+        useGroupStore
+          .getState()
+          .setListId(persistedSnapshot.lastListId ?? persistedSnapshot.listId ?? null);
         navigate("/list");
       } else {
         navigate("/group");
@@ -76,12 +98,7 @@ export function RegisterPage() {
           <p>Cadastro web inicial</p>
 
           <form onSubmit={onSubmit} className="form mt-6">
-            <Input
-              label="Nome"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
+            <Input label="Nome" value={name} onChange={(e) => setName(e.target.value)} required />
             <Input
               label="E-mail"
               value={email}

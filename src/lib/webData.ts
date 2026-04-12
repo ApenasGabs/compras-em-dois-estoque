@@ -69,10 +69,7 @@ export async function loadUserGroups(userId: string): Promise<GroupRecord[]> {
   }));
 }
 
-export async function restoreGroupContext(
-  userId: string,
-  savedGroupId: string | null,
-) {
+export async function restoreGroupContext(userId: string, savedGroupId: string | null) {
   const groups = await loadUserGroups(userId);
   const activeGroup = pickActiveGroup(groups, savedGroupId);
 
@@ -85,7 +82,7 @@ export async function restoreGroupContext(
     .select("id")
     .eq("group_id", activeGroup.id)
     .eq("ativa", true)
-    .maybeSingle();
+    .limit(1);
 
   if (error) {
     throw new Error(error.message);
@@ -94,7 +91,7 @@ export async function restoreGroupContext(
   return {
     groups,
     group: activeGroup,
-    listId: listData?.id ?? null,
+    listId: listData?.[0]?.id ?? null,
   };
 }
 
@@ -122,23 +119,19 @@ export async function loadMembers(groupId: string): Promise<MemberRecord[]> {
   }));
 }
 
-export async function loadActiveList(
-  groupId: string,
-): Promise<ShoppingListRecord | null> {
+export async function loadActiveList(groupId: string): Promise<ShoppingListRecord | null> {
   const { data, error } = await supabase
     .from("shopping_lists")
     .select("id, ativa, finalizada_em, total, group_id")
     .eq("group_id", groupId)
     .eq("ativa", true)
-    .maybeSingle();
+    .limit(1);
 
   if (error) throw new Error(error.message);
-  return data ?? null;
+  return data?.[0] ?? null;
 }
 
-export async function ensureActiveListForGroup(
-  groupId: string,
-): Promise<ShoppingListRecord> {
+export async function ensureActiveListForGroup(groupId: string): Promise<ShoppingListRecord> {
   const existing = await loadActiveList(groupId);
   if (existing) return existing;
 
@@ -146,18 +139,19 @@ export async function ensureActiveListForGroup(
     .from("shopping_lists")
     .insert({ group_id: groupId, ativa: true })
     .select("id, ativa, finalizada_em, total, group_id")
-    .single();
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
-  return data as ShoppingListRecord;
+  if (!data) {
+    throw new Error("Não foi possível criar a lista ativa do grupo");
+  }
+  return data;
 }
 
 export async function loadListItems(listId: string): Promise<ItemRecord[]> {
   const { data, error } = await supabase
     .from("items")
-    .select(
-      "id, nome, quantidade, categoria, comprado, preco, criado_por, list_id",
-    )
+    .select("id, nome, quantidade, categoria, comprado, preco, criado_por, list_id")
     .eq("list_id", listId)
     .order("criado_em", { ascending: true });
 
@@ -186,26 +180,14 @@ export async function addListItem(input: AddListItemInput): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export async function toggleListItemPurchased(
-  itemId: string,
-  purchased: boolean,
-): Promise<void> {
-  const { error } = await supabase
-    .from("items")
-    .update({ comprado: purchased })
-    .eq("id", itemId);
+export async function toggleListItemPurchased(itemId: string, purchased: boolean): Promise<void> {
+  const { error } = await supabase.from("items").update({ comprado: purchased }).eq("id", itemId);
 
   if (error) throw new Error(error.message);
 }
 
-export async function updateListItemPrice(
-  itemId: string,
-  price: number | null,
-): Promise<void> {
-  const { error } = await supabase
-    .from("items")
-    .update({ preco: price })
-    .eq("id", itemId);
+export async function updateListItemPrice(itemId: string, price: number | null): Promise<void> {
+  const { error } = await supabase.from("items").update({ preco: price }).eq("id", itemId);
 
   if (error) throw new Error(error.message);
 }
@@ -216,10 +198,7 @@ export async function deleteListItem(itemId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export async function finishShoppingList(
-  listId: string,
-  groupId: string,
-): Promise<string | null> {
+export async function finishShoppingList(listId: string, groupId: string): Promise<string | null> {
   const { data: items, error: itemsError } = await supabase
     .from("items")
     .select("preco")
@@ -244,9 +223,7 @@ export async function finishShoppingList(
   return nextList.id;
 }
 
-export async function loadShoppingHistory(
-  groupId: string,
-): Promise<ShoppingListRecord[]> {
+export async function loadShoppingHistory(groupId: string): Promise<ShoppingListRecord[]> {
   const { data, error } = await supabase
     .from("shopping_lists")
     .select("id, ativa, finalizada_em, total, group_id, items(*)")
@@ -268,13 +245,10 @@ export async function createGroupForCurrentUser(groupName: string): Promise<{
 
   let group: { id: string; nome: string; codigo_convite: string } | null = null;
 
-  const { data: groupId, error: rpcError } = await supabase.rpc(
-    "create_group",
-    {
-      group_name: groupName.trim(),
-      invite_code: code,
-    },
-  );
+  const { data: groupId, error: rpcError } = await supabase.rpc("create_group", {
+    group_name: groupName.trim(),
+    invite_code: code,
+  });
 
   if (!rpcError && groupId) {
     const { data: createdGroup, error: groupError } = await supabase
@@ -296,16 +270,18 @@ export async function createGroupForCurrentUser(groupName: string): Promise<{
     if (authError) throw new Error(authError.message);
 
     const currentUserId = authData.user?.id;
-    if (!currentUserId)
-      throw new Error("Usuário não autenticado para criar grupo");
+    if (!currentUserId) throw new Error("Usuário não autenticado para criar grupo");
 
     const { data: insertedGroup, error: insertedGroupError } = await supabase
       .from("groups")
       .insert({ nome: groupName.trim(), codigo_convite: code })
       .select("id, nome, codigo_convite")
-      .single();
+      .maybeSingle();
 
     if (insertedGroupError) throw new Error(insertedGroupError.message);
+    if (!insertedGroup) {
+      throw new Error("Não foi possível recuperar o grupo recém-criado");
+    }
 
     const { error: memberError } = await supabase
       .from("group_members")
@@ -321,14 +297,15 @@ export async function createGroupForCurrentUser(groupName: string): Promise<{
     .from("shopping_lists")
     .insert({ group_id: group.id, ativa: true })
     .select("id")
-    .single();
+    .maybeSingle();
 
   if (listError) throw new Error(listError.message);
+  if (!list) throw new Error("Não foi possível criar a lista inicial do grupo");
 
   return {
     groupId: group.id,
     inviteCode: code,
-    listId: list?.id ?? null,
+    listId: list.id,
     groupName: group.nome,
   };
 }
@@ -384,10 +361,7 @@ export async function joinGroupByCode(
   };
 }
 
-export async function leaveGroup(
-  groupId: string,
-  userId: string,
-): Promise<void> {
+export async function leaveGroup(groupId: string, userId: string): Promise<void> {
   const { error } = await supabase
     .from("group_members")
     .delete()
@@ -397,14 +371,12 @@ export async function leaveGroup(
   if (error) throw new Error(error.message);
 }
 
-export async function createShoppingListForGroup(
-  groupId: string,
-): Promise<string | null> {
+export async function createShoppingListForGroup(groupId: string): Promise<string | null> {
   const { data, error } = await supabase
     .from("shopping_lists")
     .insert({ group_id: groupId, ativa: true })
     .select("id")
-    .single();
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
   return data?.id ?? null;

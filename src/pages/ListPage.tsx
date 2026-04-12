@@ -71,6 +71,7 @@ export const ListPage = () => {
 
   const refreshItems = useCallback(async (targetListId?: string | null) => {
     if (!targetListId) return;
+
     const loadedItems = await loadListItems(targetListId);
     setItems(loadedItems as ItemRecord[]);
     setPriceDrafts(
