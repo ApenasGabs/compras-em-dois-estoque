@@ -1,14 +1,26 @@
 import type { ReactElement } from "react";
 
-interface InputProps extends Omit<
-  React.InputHTMLAttributes<HTMLInputElement>,
-  "size"
-> {
-  variant?: "bordered" | "filled" | "faded";
-  size?: "sm" | "md" | "lg";
+type InputStyle = "default" | "ghost" | "bordered";
+type InputColor =
+  | "neutral"
+  | "primary"
+  | "secondary"
+  | "accent"
+  | "info"
+  | "success"
+  | "warning"
+  | "error";
+
+interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
+  styleVariant?: InputStyle;
+  color?: InputColor;
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   label?: string;
   error?: string;
   helperText?: string;
+  validator?: boolean;
+  // Backward compatibility for existing usages before this refactor.
+  variant?: "bordered" | "filled" | "faded";
 }
 
 /**
@@ -21,49 +33,86 @@ interface InputProps extends Omit<
  * @param helperText - Texto auxiliar
  */
 export const Input = ({
-  variant = "bordered",
+  styleVariant = "default",
+  color,
   size = "md",
   label,
   error,
   helperText,
+  validator = false,
+  variant,
   className = "",
   ...props
 }: InputProps): ReactElement => {
-  const variantClasses: Record<string, string> = {
+  const inputStyle = props.style;
+  const styleClasses: Record<InputStyle, string> = {
+    default: "",
+    ghost: "input-ghost",
     bordered: "input-bordered",
-    filled: "input-filled",
-    faded: "input-faded",
   };
 
-  const sizeClasses: Record<string, string> = {
+  const colorClasses: Record<InputColor, string> = {
+    neutral: "input-neutral",
+    primary: "input-primary",
+    secondary: "input-secondary",
+    accent: "input-accent",
+    info: "input-info",
+    success: "input-success",
+    warning: "input-warning",
+    error: "input-error",
+  };
+
+  const sizeClasses: Record<NonNullable<InputProps["size"]>, string> = {
+    xs: "input-xs",
     sm: "input-sm",
-    md: "",
+    md: "input-md",
     lg: "input-lg",
+    xl: "input-xl",
   };
 
-  const variantClass = variantClasses[variant] || variantClasses.bordered;
+  const resolvedStyleVariant: InputStyle =
+    variant === "faded" ? "ghost" : variant === "bordered" ? "bordered" : styleVariant;
+  const styleClass = styleClasses[resolvedStyleVariant];
   const sizeClass = sizeClasses[size] || sizeClasses.md;
+  const colorClass = color ? colorClasses[color] : "";
+  const validatorClass = validator ? "validator" : "";
   const hasError = error ? "input-error" : "";
 
   return (
     <div className="w-full">
       {label && (
-        <label className="label">
-          <span className="label-text">{label}</span>
+        <label className="label text-base-content">
+          <span
+            className="label-text text-base-content"
+            style={{ WebkitTextFillColor: "currentColor" }}
+          >
+            {label}
+          </span>
         </label>
       )}
       <input
-        className={`input w-full ${variantClass} ${sizeClass} ${hasError} ${className}`.trim()}
+        className={`input w-full text-base-content placeholder:text-base-content/60 ${styleClass} ${colorClass} ${sizeClass} ${validatorClass} ${hasError} ${className}`.trim()}
         {...props}
+        style={{ WebkitTextFillColor: "currentColor", ...inputStyle }}
       />
       {error && (
-        <label className="label">
-          <span className="label-text-alt text-error">{error}</span>
+        <label className="label text-error">
+          <span
+            className="label-text-alt text-error"
+            style={{ WebkitTextFillColor: "currentColor" }}
+          >
+            {error}
+          </span>
         </label>
       )}
       {helperText && !error && (
-        <label className="label">
-          <span className="label-text-alt">{helperText}</span>
+        <label className="label text-base-content">
+          <span
+            className="label-text-alt text-base-content/70"
+            style={{ WebkitTextFillColor: "currentColor" }}
+          >
+            {helperText}
+          </span>
         </label>
       )}
     </div>

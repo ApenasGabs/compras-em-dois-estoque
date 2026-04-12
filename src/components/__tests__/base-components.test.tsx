@@ -168,10 +168,7 @@ describe("Card Component", () => {
 describe("Divider Component", () => {
   it("renders horizontal divider without content", () => {
     render(<Divider />);
-    expect(screen.getByRole("separator")).toHaveAttribute(
-      "aria-orientation",
-      "horizontal",
-    );
+    expect(screen.getByRole("separator")).toHaveAttribute("aria-orientation", "horizontal");
   });
 
   it("renders horizontal divider with content", () => {
@@ -217,11 +214,9 @@ describe("FeatureCard Component", () => {
 describe("Footer Component", () => {
   it("renders footer text and link", () => {
     render(<Footer />);
-    expect(
-      screen.getByText(
-        "Template React + TypeScript + Vite + Tailwind CSS + daisyUI",
-      ),
-    ).toBeInTheDocument();
+    const footer = screen.getByRole("contentinfo");
+    expect(footer).toHaveTextContent("Feito com muito");
+    expect(footer).toHaveTextContent("por");
     const link = screen.getByText("ApenasGabs") as HTMLAnchorElement;
     expect(link.href).toContain("github.com/apenasgabs");
   });

@@ -3,7 +3,7 @@
 ## Visao geral
 
 Este projeto nao expoe backend HTTP proprio.
-Toda comunicacao de dados e feita pelo cliente Supabase da aplicacao web em `web/src/lib/supabase.ts`.
+Toda comunicacao de dados e feita pelo cliente Supabase da aplicacao em `src/lib/supabase.ts`.
 
 Os "endpoints" usados pelo app sao:
 
@@ -16,7 +16,7 @@ Os "endpoints" usados pelo app sao:
 
 - URL base: `VITE_SUPABASE_URL`
 - Chave anonima: `VITE_SUPABASE_ANON_KEY`
-- Cliente: `web/src/lib/supabase.ts`
+- Cliente: `src/lib/supabase.ts`
 
 ## 1) Auth
 
@@ -44,7 +44,7 @@ Os "endpoints" usados pelo app sao:
 ### Criacao de grupo (opcional)
 
 - Operacao: `supabase.rpc("create_group", { group_name, invite_code })`
-- Onde e usado: `web/src/lib/webData.ts` (`createGroupForCurrentUser`)
+- Onde e usado: `src/lib/webData.ts` (`createGroupForCurrentUser`)
 - Observacao: se a RPC nao existir, o codigo usa fallback com insert em `groups` + `group_members`.
 
 ## 3) Operacoes por tabela
@@ -102,6 +102,40 @@ Os "endpoints" usados pelo app sao:
   - `supabase.channel("list-channel")`
 - Evento de mudancas:
   - `postgres_changes` na tabela `items`
+
+## 5) Endpoints de Estoque (tabelas Supabase)
+
+### `stock_items`
+
+- Listar itens por grupo:
+  - `.select(...).eq("group_id", groupId).order("nome")`
+- Criar/atualizar item:
+  - `.upsert(payload).select(...).maybeSingle()`
+- Atualizar flags/quantidade:
+  - `.update(...).eq("id", itemId)`
+- Remover item:
+  - `.delete().eq("id", itemId)`
+
+Campos relevantes no fluxo atual:
+
+- `quantidade`, `quantidade_minima`, `tamanho_porcao`
+- `auto_adicionar_lista`, `na_lista`
+- `consumo_frequencia`, `consumo_valor`, `ultimo_consumo_auto_em`
+- `data_compra`, `data_validade`
+
+### `stock_movements`
+
+- Registrar movimento:
+  - `.insert({ item_id, tipo, quantidade, observacao, criado_por })`
+- Buscar historico por item:
+  - `.select(...).eq("item_id", itemId).order("criado_em", { ascending: false })`
+
+Tipos aceitos:
+
+- `entrada`
+- `saida`
+- `ajuste`
+- `consumo_auto`
 
 ## Notas importantes
 

@@ -13,6 +13,7 @@ import {
 } from "../lib/webData";
 import { useAuthStore } from "../stores/authStore";
 import { useGroupStore } from "../stores/groupStore";
+import { useStockStore } from "../stores/stockStore";
 
 export function ProfilePage() {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ export function ProfilePage() {
   const setListId = useGroupStore((state) => state.setListId);
   const setAllGroups = useGroupStore((state) => state.setAllGroups);
   const clearAllGroupState = useGroupStore((state) => state.clearAllGroupState);
+  const clearStock = useStockStore((state) => state.clearStock);
   const [members, setMembers] = useState<MemberRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -87,6 +89,7 @@ export function ProfilePage() {
 
       useAuthStore.getState().clearUser();
       clearAllGroupState();
+      clearStock();
       navigate("/login");
     } catch (logoutError) {
       setError(logoutError instanceof Error ? logoutError.message : "Falha ao sair");
