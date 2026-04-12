@@ -8,7 +8,7 @@ import { Input } from "../components/Input/Input";
 import { supabase } from "../lib/supabase";
 import { restoreGroupContext } from "../lib/webData";
 import { useAuthStore } from "../stores/authStore";
-import { getPersistedGroupSnapshot, useGroupStore } from "../stores/groupStore";
+import { getPersistedGroupSnapshotForUser, useGroupStore } from "../stores/groupStore";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -36,7 +36,8 @@ export function LoginPage() {
     if (data.user) {
       const userName = data.user.user_metadata?.nome ?? data.user.email ?? "";
       useAuthStore.getState().setUser(data.user.id, userName);
-      const persistedSnapshot = getPersistedGroupSnapshot();
+      useGroupStore.getState().setSnapshotUserId(data.user.id);
+      const persistedSnapshot = getPersistedGroupSnapshotForUser(data.user.id);
 
       const currentGroupId =
         useGroupStore.getState().groupId ??
@@ -45,11 +46,7 @@ export function LoginPage() {
         persistedSnapshot?.groupId ??
         null;
       const context = await restoreGroupContext(data.user.id, currentGroupId);
-      useGroupStore
-        .getState()
-        .setAllGroups(
-          context.groups.length > 0 ? context.groups : (persistedSnapshot?.allGroups ?? []),
-        );
+      useGroupStore.getState().setAllGroups(context.groups);
 
       if (context.group) {
         useGroupStore

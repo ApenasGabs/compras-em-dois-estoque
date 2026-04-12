@@ -2,18 +2,19 @@ import { useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { restoreGroupContext } from "../lib/webData";
 import { useAuthStore } from "../stores/authStore";
-import { getPersistedGroupSnapshot, useGroupStore } from "../stores/groupStore";
+import { getPersistedGroupSnapshotForUser, useGroupStore } from "../stores/groupStore";
 import { useSessionStore } from "../stores/sessionStore";
 
 export function SessionBootstrap() {
   const setUser = useAuthStore((state) => state.setUser);
   const clearUser = useAuthStore((state) => state.clearUser);
-  const { setGroup, setListId, setAllGroups, clearGroup } = useGroupStore();
+  const { setGroup, setListId, setAllGroups, clearGroup, clearAllGroupState, setSnapshotUserId } =
+    useGroupStore();
   const setReady = useSessionStore((state) => state.setReady);
+
   useEffect(() => {
     let active = true;
     let initialNoSessionTimer: ReturnType<typeof setTimeout> | null = null;
-    const persistedSnapshot = getPersistedGroupSnapshot();
     const withTimeout = async <T,>(
       promise: Promise<T>,
       timeoutMs: number,
@@ -31,7 +32,7 @@ export function SessionBootstrap() {
       if (!active) return;
 
       clearUser();
-      clearGroup();
+      clearAllGroupState();
       setReady(true);
     };
 
@@ -64,6 +65,9 @@ export function SessionBootstrap() {
       clearInitialTimer();
 
       setUser(session.user.id, session.user.user_metadata?.nome ?? session.user.email ?? "");
+      setSnapshotUserId(session.user.id);
+
+      const persistedSnapshot = getPersistedGroupSnapshotForUser(session.user.id);
 
       if (
         persistedSnapshot?.lastGroupId &&
@@ -81,8 +85,6 @@ export function SessionBootstrap() {
       if (persistedSnapshot?.allGroups?.length) {
         setAllGroups(persistedSnapshot.allGroups);
       }
-
-      setReady(true);
 
       try {
         const savedGroupId =
@@ -123,6 +125,10 @@ export function SessionBootstrap() {
         if (!useGroupStore.getState().groupId) {
           clearGroup();
         }
+      } finally {
+        if (active) {
+          setReady(true);
+        }
       }
     });
 
@@ -131,7 +137,17 @@ export function SessionBootstrap() {
       clearInitialTimer();
       subscription.unsubscribe();
     };
-  }, [clearGroup, clearUser, setGroup, setListId, setReady, setAllGroups, setUser]);
+  }, [
+    clearAllGroupState,
+    clearGroup,
+    clearUser,
+    setGroup,
+    setListId,
+    setReady,
+    setAllGroups,
+    setSnapshotUserId,
+    setUser,
+  ]);
 
   return null;
 }

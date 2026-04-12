@@ -20,11 +20,20 @@ const App = () => {
   const navigate = useNavigate();
   const userId = useAuthStore((state) => state.userId);
   const userName = useAuthStore((state) => state.userName);
+  const clearUser = useAuthStore((state) => state.clearUser);
   const groupName = useGroupStore((state) => state.groupName);
+  const clearAllGroupState = useGroupStore((state) => state.clearAllGroupState);
   const ready = useSessionStore((state) => state.ready);
 
   const handleLogout = async (): Promise<void> => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Falha ao sair da conta", error);
+      return;
+    }
+
+    clearUser();
+    clearAllGroupState();
     navigate("/login", { replace: true });
   };
 

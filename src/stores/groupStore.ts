@@ -8,11 +8,14 @@ export interface WebGroupRecord {
 }
 
 export interface GroupStoreSnapshot {
+  snapshotUserId: string | null;
   groupId: string | null;
   groupName: string | null;
   groupCode: string | null;
   listId: string | null;
   lastGroupId: string | null;
+  lastGroupName: string | null;
+  lastGroupCode: string | null;
   lastListId: string | null;
   allGroups: WebGroupRecord[];
 }
@@ -35,11 +38,14 @@ export const getPersistedGroupSnapshot = (): GroupStoreSnapshot | null => {
     if (!state) return null;
 
     return {
+      snapshotUserId: state.snapshotUserId ?? null,
       groupId: state.groupId ?? null,
       groupName: state.groupName ?? null,
       groupCode: state.groupCode ?? null,
       listId: state.listId ?? null,
       lastGroupId: state.lastGroupId ?? null,
+      lastGroupName: state.lastGroupName ?? null,
+      lastGroupCode: state.lastGroupCode ?? null,
       lastListId: state.lastListId ?? null,
       allGroups: Array.isArray(state.allGroups) ? state.allGroups : [],
     };
@@ -48,36 +54,55 @@ export const getPersistedGroupSnapshot = (): GroupStoreSnapshot | null => {
   }
 };
 
+export const getPersistedGroupSnapshotForUser = (userId: string): GroupStoreSnapshot | null => {
+  const snapshot = getPersistedGroupSnapshot();
+  if (!snapshot) return null;
+  if (!snapshot.snapshotUserId) return null;
+  if (snapshot.snapshotUserId !== userId) return null;
+  return snapshot;
+};
+
 interface GroupStore {
+  snapshotUserId: string | null;
   groupId: string | null;
   groupName: string | null;
   groupCode: string | null;
   listId: string | null;
   lastGroupId: string | null;
+  lastGroupName: string | null;
+  lastGroupCode: string | null;
   lastListId: string | null;
   allGroups: WebGroupRecord[];
+  setSnapshotUserId: (userId: string | null) => void;
   setGroup: (id: string, name: string, code: string) => void;
   setListId: (listId: string | null) => void;
   setAllGroups: (groups: WebGroupRecord[]) => void;
   clearGroup: () => void;
+  clearAllGroupState: () => void;
 }
 
 export const useGroupStore = create<GroupStore>()(
   persist(
     (set) => ({
+      snapshotUserId: null,
       groupId: null,
       groupName: null,
       groupCode: null,
       listId: null,
       lastGroupId: null,
+      lastGroupName: null,
+      lastGroupCode: null,
       lastListId: null,
       allGroups: [],
+      setSnapshotUserId: (snapshotUserId) => set({ snapshotUserId }),
       setGroup: (id, name, code) =>
         set({
           groupId: id,
           groupName: name,
           groupCode: code,
           lastGroupId: id,
+          lastGroupName: name,
+          lastGroupCode: code,
         }),
       setListId: (listId) =>
         set({
@@ -91,6 +116,19 @@ export const useGroupStore = create<GroupStore>()(
           groupName: null,
           groupCode: null,
           listId: null,
+        }),
+      clearAllGroupState: () =>
+        set({
+          snapshotUserId: null,
+          groupId: null,
+          groupName: null,
+          groupCode: null,
+          listId: null,
+          lastGroupId: null,
+          lastGroupName: null,
+          lastGroupCode: null,
+          lastListId: null,
+          allGroups: [],
         }),
     }),
     {

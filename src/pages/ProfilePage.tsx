@@ -25,7 +25,7 @@ export function ProfilePage() {
   const setGroup = useGroupStore((state) => state.setGroup);
   const setListId = useGroupStore((state) => state.setListId);
   const setAllGroups = useGroupStore((state) => state.setAllGroups);
-  const clearGroup = useGroupStore((state) => state.clearGroup);
+  const clearAllGroupState = useGroupStore((state) => state.clearAllGroupState);
   const [members, setMembers] = useState<MemberRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -80,9 +80,13 @@ export function ProfilePage() {
     setError(null);
 
     try {
-      await supabase.auth.signOut();
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        throw new Error(signOutError.message);
+      }
+
       useAuthStore.getState().clearUser();
-      clearGroup();
+      clearAllGroupState();
       navigate("/login");
     } catch (logoutError) {
       setError(logoutError instanceof Error ? logoutError.message : "Falha ao sair");
