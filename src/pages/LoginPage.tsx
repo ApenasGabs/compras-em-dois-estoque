@@ -93,7 +93,7 @@ export function LoginPage() {
       </Card>
 
       <p>
-        Nao tem conta?{" "}
+        Não tem conta?{" "}
         <Button variant="ghost" size="sm" onClick={() => navigate("/register")}>
           Criar conta
         </Button>

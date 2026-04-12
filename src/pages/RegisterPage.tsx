@@ -107,7 +107,7 @@ export function RegisterPage() {
       </Card>
 
       <p>
-        Ja tem conta?{" "}
+        Já tem conta?{" "}
         <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
           Entrar
         </Button>

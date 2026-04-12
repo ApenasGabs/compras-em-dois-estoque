@@ -287,7 +287,7 @@ export const ListPage = () => {
             <div>
               <h2>Itens</h2>
               <p className="muted">
-                Toque para marcar como comprado e ajuste o preco quando precisar.
+                Toque para marcar como comprado e ajuste o preço quando precisar.
               </p>
             </div>
             <Button type="button" onClick={() => setModalVisible(true)}>
@@ -316,7 +316,7 @@ export const ListPage = () => {
 
                       <div className="item-controls">
                         <label className="price-label" htmlFor={`price-${item.id}`}>
-                          Preco
+                          Preço
                         </label>
                         <input
                           id={`price-${item.id}`}
@@ -360,7 +360,7 @@ export const ListPage = () => {
           )}
 
           <footer className="total-row">
-            <span>Total da selecao</span>
+            <span>Total da seleção</span>
             <strong>R$ {total.toFixed(2)}</strong>
           </footer>
         </CardBody>
@@ -368,7 +368,7 @@ export const ListPage = () => {
 
       <div className="row">
         <Button type="button" variant="ghost" onClick={() => navigate("/history")}>
-          Ver historico
+          Ver histórico
         </Button>
         <Button type="button" variant="ghost" onClick={() => navigate("/profile")}>
           Perfil
