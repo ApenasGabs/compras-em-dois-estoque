@@ -12,7 +12,7 @@ import tseslint from "typescript-eslint";
 const tsconfigRootDir = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig([
-  globalIgnores(["dist", "web", "ApenasTemplate"]),
+  globalIgnores(["dist", "web"]),
   {
     files: ["src/**/*.{ts,tsx}"],
     extends: [

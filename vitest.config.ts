@@ -9,13 +9,6 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     css: true,
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
-    exclude: [
-      "**/node_modules/**",
-      "**/dist/**",
-      "**/*.spec.ts",
-      "**/e2e/**",
-      "ApenasTemplate/**",
-      "web/**",
-    ],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/*.spec.ts", "**/e2e/**", "web/**"],
   },
 });
