@@ -469,7 +469,11 @@ export const autoAddToShoppingList = async (
   const list = await ensureActiveListForGroup(groupId);
   const normalizedName = normalizeStockText(itemName);
 
-  const escapedName = normalizedName.replace(/%/g, "\\%").replace(/_/g, "\\_");
+  // Escape backslashes first, then ILIKE wildcards (% and _) to prevent wildcard injection in PostgreSQL.
+  const escapedName = normalizedName
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_");
 
   const { data: existing, error: existingError } = await supabase
     .from("items")
