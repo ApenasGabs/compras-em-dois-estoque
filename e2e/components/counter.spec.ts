@@ -1,50 +1,29 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("Counter Component", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+const e2eEmail = process.env.E2E_EMAIL ?? "";
+const e2ePassword = process.env.E2E_PASSWORD ?? "";
+
+test.describe("Rotas autenticadas - smoke", () => {
+  test("deve redirecionar /profile para /login sem sessao", async ({ page }) => {
+    await page.goto("/profile");
+    await expect(page).toHaveURL(/\/login$/);
   });
 
-  test("should display counter card", async ({ page }) => {
-    // Verificar se o card do contador está visível
-    const card = page.getByTestId("counter-card");
-    await expect(card).toBeVisible();
-  });
+  test("deve abrir /profile apos login", async ({ page }) => {
+    test.skip(
+      !e2eEmail || !e2ePassword,
+      "Defina E2E_EMAIL e E2E_PASSWORD para executar este teste",
+    );
 
-  test("should increment counter when button is clicked", async ({ page }) => {
-    // Localizar o botão do contador
-    const counterButton = page.getByTestId("counter-button");
+    await page.goto("/login");
+    await page.locator("input[type='email']").fill(e2eEmail);
+    await page.locator("input[type='password']").fill(e2ePassword);
+    await page.getByRole("button", { name: /^Entrar$/ }).click();
 
-    // Verificar valor inicial (0)
-    await expect(counterButton).toContainText("Contagem: 0");
+    await expect(page).toHaveURL(/\/(group|list)$/);
+    await page.goto("/profile");
 
-    // Clicar no botão
-    await counterButton.click();
-
-    // Verificar se incrementou para 1
-    await expect(counterButton).toContainText("Contagem: 1");
-
-    // Clicar novamente
-    await counterButton.click();
-
-    // Verificar se incrementou para 2
-    await expect(counterButton).toContainText("Contagem: 2");
-  });
-
-  test("should display counter hint badge", async ({ page }) => {
-    // Verificar se o badge com dica está visível
-    const badge = page.getByTestId("counter-hint");
-    await expect(badge).toBeVisible();
-    await expect(badge).toContainText("Clique no botão para incrementar");
-  });
-
-  test("should display counter button with primary style", async ({ page }) => {
-    // Verificar se o botão tem as classes corretas
-    const counterButton = page.getByTestId("counter-button");
-
-    // Verificar classes
-    const classes = await counterButton.getAttribute("class");
-    expect(classes).toContain("btn-primary");
-    expect(classes).toContain("btn-lg");
+    await expect(page).toHaveURL(/\/profile$/);
+    await expect(page.getByRole("heading", { name: "Perfil" })).toBeVisible();
   });
 });

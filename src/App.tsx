@@ -1,11 +1,10 @@
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { Button } from "./components/Button/Button";
-import { Navbar } from "./components/Navbar/Navbar";
 import { Footer } from "./components/Footer/Footer";
-import ThemeSelector from "./components/ThemeSelector/ThemeSelector";
+import { Navbar } from "./components/Navbar/Navbar";
 import { PublicOnly, RequireAuth, RequireGroup } from "./components/RouteGuards";
-import { useAuthStore } from "./stores/authStore";
-import { useGroupStore } from "./stores/groupStore";
+import ThemeSelector from "./components/ThemeSelector/ThemeSelector";
+import { supabase } from "./lib/supabase";
 import { GroupPage } from "./pages/GroupPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { ListPage } from "./pages/ListPage";
@@ -13,39 +12,59 @@ import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { useAuthStore } from "./stores/authStore";
+import { useGroupStore } from "./stores/groupStore";
+import { useSessionStore } from "./stores/sessionStore";
 
 const App = () => {
   const navigate = useNavigate();
+  const userId = useAuthStore((state) => state.userId);
   const userName = useAuthStore((state) => state.userName);
+  const clearUser = useAuthStore((state) => state.clearUser);
   const groupName = useGroupStore((state) => state.groupName);
+  const clearAllGroupState = useGroupStore((state) => state.clearAllGroupState);
+  const ready = useSessionStore((state) => state.ready);
+
+  const handleLogout = async (): Promise<void> => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Falha ao sair da conta", error);
+      return;
+    }
+
+    clearUser();
+    clearAllGroupState();
+    navigate("/login", { replace: true });
+  };
+
+  const showPrivateActions = ready && Boolean(userId);
 
   return (
     <div className="min-h-screen bg-base-200 flex flex-col">
       <Navbar title="Compras em Dois">
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/group")}>
-            Grupo
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/list")}>
-            Lista
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/history")}
-          >
-            Histórico
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/profile")}
-          >
-            Perfil
-          </Button>
+          {showPrivateActions && (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/group")}>
+                Grupo
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/list")}>
+                Lista
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/history")}>
+                Histórico
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
+                Perfil
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                Sair
+              </Button>
+            </>
+          )}
           <div className="ml-2 flex items-center gap-2">
             <span className="hidden sm:inline text-sm text-base-content/70">
-              {groupName ? `Grupo: ${groupName}` : userName ?? "Visitante"}
+              {groupName ? `Grupo: ${groupName}` : (userName ?? "Visitante")}
             </span>
             <ThemeSelector />
           </div>

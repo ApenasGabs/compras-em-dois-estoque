@@ -1,65 +1,33 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("Feature Cards", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+const e2eEmail = process.env.E2E_EMAIL ?? "";
+const e2ePassword = process.env.E2E_PASSWORD ?? "";
+
+test.describe("Navbar e visibilidade por sessao", () => {
+  test("nao deve mostrar botoes privados sem login", async ({ page }) => {
+    await page.goto("/login");
+
+    await expect(page.getByRole("button", { name: "Grupo" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Lista" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Historico" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Perfil" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Sair" })).toHaveCount(0);
   });
 
-  test("should display all three feature cards", async ({ page }) => {
-    // Localizar todos os cards com features
-    const featureCards = page.getByTestId("feature-cards");
-    await expect(featureCards).toBeVisible();
+  test("deve mostrar botoes privados apos login", async ({ page }) => {
+    test.skip(
+      !e2eEmail || !e2ePassword,
+      "Defina E2E_EMAIL e E2E_PASSWORD para executar este teste",
+    );
 
-    // Verificar se os 3 cards estão presentes
-    const viteCard = page.getByTestId("vite-card");
-    const tailwindCard = page.getByTestId("tailwind-card");
-    const daisyCard = page.getByTestId("daisyui-card");
+    await page.goto("/login");
+    await page.locator("input[type='email']").fill(e2eEmail);
+    await page.locator("input[type='password']").fill(e2ePassword);
+    await page.getByRole("button", { name: /^Entrar$/ }).click();
 
-    await expect(viteCard).toBeVisible();
-    await expect(tailwindCard).toBeVisible();
-    await expect(daisyCard).toBeVisible();
-  });
-
-  test("should display Vite card with correct content", async ({ page }) => {
-    // Verificar card do Vite
-    const viteCard = page.getByTestId("vite-card");
-    await expect(viteCard).toBeVisible();
-    await expect(viteCard).toContainText("Vite");
-    await expect(viteCard).toContainText("Build rápido e HMR instantâneo");
-  });
-
-  test("should display Tailwind CSS card with correct content", async ({
-    page,
-  }) => {
-    // Verificar card do Tailwind
-    const tailwindCard = page.getByTestId("tailwind-card");
-    await expect(tailwindCard).toBeVisible();
-    await expect(tailwindCard).toContainText("Tailwind CSS");
-    await expect(tailwindCard).toContainText("Utility-first CSS framework");
-  });
-
-  test("should display daisyUI card with correct content", async ({ page }) => {
-    // Verificar card do daisyUI
-    const daisyCard = page.getByTestId("daisyui-card");
-    await expect(daisyCard).toBeVisible();
-    await expect(daisyCard).toContainText("daisyUI");
-    await expect(daisyCard).toContainText("Componentes prontos para uso");
-  });
-
-  test("should display info alert", async ({ page }) => {
-    // Verificar alert info
-    const alert = page.getByTestId("info-alert");
-    await expect(alert).toBeVisible();
-    await expect(alert).toContainText("src/App.tsx");
-  });
-
-  test("should display tools section", async ({ page }) => {
-    // Verificar se a seção de ferramentas está visível
-    const toolsSection = page.getByTestId("tools-section");
-    await expect(toolsSection).toBeVisible();
-    await expect(toolsSection).toContainText("React");
-    await expect(toolsSection).toContainText("TypeScript");
-    await expect(toolsSection).toContainText("Vitest");
-    await expect(toolsSection).toContainText("Playwright");
+    await expect(page).toHaveURL(/\/(group|list)$/);
+    await expect(page.getByRole("button", { name: "Grupo" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Perfil" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sair" })).toBeVisible();
   });
 });
