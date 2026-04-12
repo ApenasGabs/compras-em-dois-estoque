@@ -5,6 +5,21 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [0.2.0](https://github.com/ApenasGabs/compras-em-dois-estoque/compare/v0.1.1...v0.2.0) (2026-04-12)
+
+### ✨ Features
+
+* :sparkles: added stock management features including import functionality and stock item details page ([f52ddbe](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/f52ddbeb34f164317f94d3b19c4524f9f3371de4)), closes [#11](https://github.com/ApenasGabs/compras-em-dois-estoque/issues/11) [#12](https://github.com/ApenasGabs/compras-em-dois-estoque/issues/12) [#13](https://github.com/ApenasGabs/compras-em-dois-estoque/issues/13) [#14](https://github.com/ApenasGabs/compras-em-dois-estoque/issues/14) [#15](https://github.com/ApenasGabs/compras-em-dois-estoque/issues/15) [#16](https://github.com/ApenasGabs/compras-em-dois-estoque/issues/16) [#17](https://github.com/ApenasGabs/compras-em-dois-estoque/issues/17) [#18](https://github.com/ApenasGabs/compras-em-dois-estoque/issues/18) [#19](https://github.com/ApenasGabs/compras-em-dois-estoque/issues/19) [#20](https://github.com/ApenasGabs/compras-em-dois-estoque/issues/20)
+
+### 🐛 Bug Fixes
+
+* apply review feedback - ajuste type, ILIKE escaping, parallel imports, wakeLock, footer emoji, SQL schema ([d307cc8](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/d307cc83f8995cd153a7a38224119ebb6e4ede6c))
+* escape backslashes in ILIKE sanitization to prevent PostgreSQL wildcard injection ([2d0367a](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/2d0367a0a7d27b5d549e8091f5f6ed2acae97b74))
+
+### 🔧 Chores
+
+* :broom: Remove unused pages and stores; delete Login, NotFound, Profile, Register pages, and auth/group/session stores; clean up Supabase configuration and TypeScript settings. ([9ce6bef](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/9ce6bef44175f0aaa3ffe1d925510f4e6f54f3c8))
+
 ## [0.1.1](https://github.com/ApenasGabs/compras-em-dois-estoque/compare/v0.1.0...v0.1.1) (2026-04-12)
 
 ### 🐛 Bug Fixes
