@@ -241,29 +241,60 @@ export async function finishShoppingList(listId: string, groupId: string): Promi
     );
     const todayDate = new Date().toISOString().slice(0, 10);
 
+    type AggregatedStockUpdate = {
+      key: string;
+      nome: string;
+      categoria: string | null | undefined;
+      unidade: string;
+      quantidade: number;
+    };
+    const aggregatedStockUpdates = new Map<string, AggregatedStockUpdate>();
+
     for (const boughtItem of sourceItems) {
       const parsed = parseListQuantityLabel(boughtItem.quantidade);
       if (parsed.quantidade <= 0) continue;
 
       const key = `${boughtItem.nome.trim().toLowerCase()}::${parsed.unidade.toLowerCase()}`;
-      const existingStockItem = stockByKey.get(key);
+      const existingAggregatedUpdate = aggregatedStockUpdates.get(key);
 
-      const savedStockItem = await upsertStockItem({
-        id: existingStockItem?.id,
-        groupId,
+      if (existingAggregatedUpdate) {
+        existingAggregatedUpdate.quantidade += parsed.quantidade;
+        continue;
+      }
+
+      aggregatedStockUpdates.set(key, {
+        key,
         nome: boughtItem.nome,
-        categoria: existingStockItem?.categoria ?? boughtItem.categoria ?? "Outros",
+        categoria: boughtItem.categoria,
         unidade: parsed.unidade,
-        quantidade: (existingStockItem?.quantidade ?? 0) + parsed.quantidade,
-        quantidadeMinima: existingStockItem?.quantidade_minima ?? 0,
-        tamanhoPorcao: existingStockItem?.tamanho_porcao ?? 1,
-        autoAdicionarLista: existingStockItem?.auto_adicionar_lista ?? false,
-        consumoFrequencia: existingStockItem?.consumo_frequencia ?? "weekly",
-        consumoValor: existingStockItem?.consumo_valor ?? 0,
-        dataCompra: existingStockItem?.data_compra ?? todayDate,
-        dataValidade: existingStockItem?.data_validade ?? null,
+        quantidade: parsed.quantidade,
       });
+    }
 
+    const savedStockItems = await Promise.all(
+      Array.from(aggregatedStockUpdates.values()).map(async (aggregatedUpdate) => {
+        const existingStockItem = stockByKey.get(aggregatedUpdate.key);
+
+        return upsertStockItem({
+          id: existingStockItem?.id,
+          groupId,
+          nome: aggregatedUpdate.nome,
+          categoria: existingStockItem?.categoria ?? aggregatedUpdate.categoria ?? "Outros",
+          unidade: aggregatedUpdate.unidade,
+          quantidade: (existingStockItem?.quantidade ?? 0) + aggregatedUpdate.quantidade,
+          quantidadeMinima: existingStockItem?.quantidade_minima ?? 0,
+          tamanhoPorcao: existingStockItem?.tamanho_porcao ?? 1,
+          autoAdicionarLista: existingStockItem?.auto_adicionar_lista ?? false,
+          consumoFrequencia: existingStockItem?.consumo_frequencia ?? "weekly",
+          consumoValor: existingStockItem?.consumo_valor ?? 0,
+          dataCompra: existingStockItem?.data_compra ?? todayDate,
+          dataValidade: existingStockItem?.data_validade ?? null,
+        });
+      }),
+    );
+
+    for (const savedStockItem of savedStockItems) {
+      const key = `${savedStockItem.nome.trim().toLowerCase()}::${savedStockItem.unidade.toLowerCase()}`;
       stockByKey.set(key, savedStockItem);
     }
   }
@@ -391,19 +422,35 @@ export async function joinGroupByCode(
 }> {
   const normalizedCode = normalizeInviteCode(inviteCode);
 
+  type JoinGroupRpcResult = {
+    group_id: string;
+    group_name: string;
+    invite_code: string;
+  };
+
+  const isJoinGroupRpcResult = (value: unknown): value is JoinGroupRpcResult => {
+    if (typeof value !== "object" || value === null) return false;
+    const obj = value as Record<string, unknown>;
+    return (
+      typeof obj.group_id === "string" &&
+      typeof obj.group_name === "string" &&
+      typeof obj.invite_code === "string"
+    );
+  };
+
   const { data: rpcJoinData, error: rpcJoinError } = await supabase.rpc("join_group_by_code", {
     invite_code_input: normalizedCode,
   });
 
   if (!rpcJoinError && rpcJoinData) {
-    const joined = Array.isArray(rpcJoinData) ? rpcJoinData[0] : rpcJoinData;
-    if (joined?.group_id && joined?.group_name && joined?.invite_code) {
-      const activeList = await ensureActiveListForGroup(joined.group_id as string);
+    const rawJoined: unknown = Array.isArray(rpcJoinData) ? rpcJoinData[0] : rpcJoinData;
+    if (isJoinGroupRpcResult(rawJoined)) {
+      const activeList = await ensureActiveListForGroup(rawJoined.group_id);
 
       return {
-        groupId: joined.group_id as string,
-        groupName: joined.group_name as string,
-        inviteCode: joined.invite_code as string,
+        groupId: rawJoined.group_id,
+        groupName: rawJoined.group_name,
+        inviteCode: rawJoined.invite_code,
         listId: activeList?.id ?? null,
       };
     }

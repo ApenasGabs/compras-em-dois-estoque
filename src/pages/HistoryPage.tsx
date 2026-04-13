@@ -105,7 +105,7 @@ export function HistoryPage() {
                       variant="ghost"
                       size="sm"
                       className="danger"
-                      disabled={deletingListId === list.id}
+                      disabled={deletingListId !== null}
                       onClick={() => void handleDeleteHistory(list.id)}
                     >
                       {deletingListId === list.id ? "Apagando..." : "Apagar histórico"}
