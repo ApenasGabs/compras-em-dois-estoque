@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Alert } from "../components/Alert/Alert";
 import { Badge } from "../components/Badge/Badge";
 import { Button } from "../components/Button/Button";
 import { Card, CardBody } from "../components/Card/Card";
-import { loadShoppingHistory, type ShoppingListRecord } from "../lib/webData";
+import {
+  deleteShoppingHistory,
+  loadShoppingHistory,
+  type ShoppingListRecord,
+} from "../lib/webData";
 import { useGroupStore } from "../stores/groupStore";
 
 export function HistoryPage() {
@@ -14,28 +18,48 @@ export function HistoryPage() {
   const [history, setHistory] = useState<ShoppingListRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingListId, setDeletingListId] = useState<string | null>(null);
+
+  const loadHistory = useCallback(async (): Promise<void> => {
+    if (!groupId) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await loadShoppingHistory(groupId);
+      setHistory(data);
+    } catch (historyError) {
+      setError(
+        historyError instanceof Error ? historyError.message : "Falha ao carregar histórico",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [groupId]);
 
   useEffect(() => {
-    async function loadHistory() {
-      if (!groupId) return;
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const data = await loadShoppingHistory(groupId);
-        setHistory(data);
-      } catch (historyError) {
-        setError(
-          historyError instanceof Error ? historyError.message : "Falha ao carregar histórico",
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-
     void loadHistory();
-  }, [groupId]);
+  }, [loadHistory]);
+
+  const handleDeleteHistory = async (listId: string): Promise<void> => {
+    if (deletingListId) return;
+
+    const confirmed = window.confirm("Deseja apagar esta lista do histórico?");
+    if (!confirmed) return;
+
+    setDeletingListId(listId);
+    setError(null);
+
+    try {
+      await deleteShoppingHistory(listId);
+      await loadHistory();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Falha ao apagar histórico");
+    } finally {
+      setDeletingListId(null);
+    }
+  };
 
   return (
     <main className="page">
@@ -75,6 +99,18 @@ export function HistoryPage() {
                     </Badge>
                   </div>
                   <p>{list.items?.length ?? 0} itens</p>
+                  <div className="actions-row mt-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="danger"
+                      disabled={deletingListId === list.id}
+                      onClick={() => void handleDeleteHistory(list.id)}
+                    >
+                      {deletingListId === list.id ? "Apagando..." : "Apagar histórico"}
+                    </Button>
+                  </div>
                 </article>
               ))}
             </div>

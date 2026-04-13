@@ -23,10 +23,13 @@ export function RegisterPage() {
     setLoading(true);
     setError(null);
 
+    const emailRedirectTo =
+      typeof window !== "undefined" ? `${window.location.origin}/login` : undefined;
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { nome: name } },
+      options: { data: { nome: name }, emailRedirectTo },
     });
 
     if (error) {

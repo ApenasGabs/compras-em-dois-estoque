@@ -200,15 +200,73 @@ export async function deleteListItem(itemId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+const parseListQuantityLabel = (rawQuantity: string): { quantidade: number; unidade: string } => {
+  const normalized = rawQuantity.trim().replace(/\s+/g, " ");
+  const match = normalized.match(/^(\d+(?:[.,]\d+)?)(?:\s+([a-zA-Z]+))?$/);
+
+  if (!match) {
+    return { quantidade: 1, unidade: "un" };
+  }
+
+  const parsedQuantity = Number.parseFloat(match[1].replace(",", "."));
+  const quantidade = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 1;
+  const unidade = (match[2] ?? "un").trim();
+
+  return {
+    quantidade,
+    unidade: unidade.length > 0 ? unidade : "un",
+  };
+};
+
 export async function finishShoppingList(listId: string, groupId: string): Promise<string | null> {
   const { data: items, error: itemsError } = await supabase
     .from("items")
-    .select("preco")
+    .select("nome, quantidade, categoria, comprado, preco")
     .eq("list_id", listId);
 
   if (itemsError) throw new Error(itemsError.message);
 
   const total = (items ?? []).reduce((sum, item) => sum + (item.preco ?? 0), 0);
+
+  const boughtItems = (items ?? []).filter((item) => item.comprado);
+  const sourceItems = boughtItems.length > 0 ? boughtItems : (items ?? []);
+
+  if (sourceItems.length > 0) {
+    const currentStockItems = await getStockItems(groupId);
+    const stockByKey = new Map(
+      currentStockItems.map((stockItem) => [
+        `${stockItem.nome.trim().toLowerCase()}::${stockItem.unidade.toLowerCase()}`,
+        stockItem,
+      ]),
+    );
+    const todayDate = new Date().toISOString().slice(0, 10);
+
+    for (const boughtItem of sourceItems) {
+      const parsed = parseListQuantityLabel(boughtItem.quantidade);
+      if (parsed.quantidade <= 0) continue;
+
+      const key = `${boughtItem.nome.trim().toLowerCase()}::${parsed.unidade.toLowerCase()}`;
+      const existingStockItem = stockByKey.get(key);
+
+      const savedStockItem = await upsertStockItem({
+        id: existingStockItem?.id,
+        groupId,
+        nome: boughtItem.nome,
+        categoria: existingStockItem?.categoria ?? boughtItem.categoria ?? "Outros",
+        unidade: parsed.unidade,
+        quantidade: (existingStockItem?.quantidade ?? 0) + parsed.quantidade,
+        quantidadeMinima: existingStockItem?.quantidade_minima ?? 0,
+        tamanhoPorcao: existingStockItem?.tamanho_porcao ?? 1,
+        autoAdicionarLista: existingStockItem?.auto_adicionar_lista ?? false,
+        consumoFrequencia: existingStockItem?.consumo_frequencia ?? "weekly",
+        consumoValor: existingStockItem?.consumo_valor ?? 0,
+        dataCompra: existingStockItem?.data_compra ?? todayDate,
+        dataValidade: existingStockItem?.data_validade ?? null,
+      });
+
+      stockByKey.set(key, savedStockItem);
+    }
+  }
 
   const { error: updateError } = await supabase
     .from("shopping_lists")
@@ -236,6 +294,16 @@ export async function loadShoppingHistory(groupId: string): Promise<ShoppingList
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+
+export const deleteShoppingHistory = async (listId: string): Promise<void> => {
+  const { error } = await supabase
+    .from("shopping_lists")
+    .delete()
+    .eq("id", listId)
+    .eq("ativa", false);
+
+  if (error) throw new Error(error.message);
+};
 
 export async function createGroupForCurrentUser(groupName: string): Promise<{
   groupId: string;
@@ -322,6 +390,24 @@ export async function joinGroupByCode(
   listId: string | null;
 }> {
   const normalizedCode = normalizeInviteCode(inviteCode);
+
+  const { data: rpcJoinData, error: rpcJoinError } = await supabase.rpc("join_group_by_code", {
+    invite_code_input: normalizedCode,
+  });
+
+  if (!rpcJoinError && rpcJoinData) {
+    const joined = Array.isArray(rpcJoinData) ? rpcJoinData[0] : rpcJoinData;
+    if (joined?.group_id && joined?.group_name && joined?.invite_code) {
+      const activeList = await ensureActiveListForGroup(joined.group_id as string);
+
+      return {
+        groupId: joined.group_id as string,
+        groupName: joined.group_name as string,
+        inviteCode: joined.invite_code as string,
+        listId: activeList?.id ?? null,
+      };
+    }
+  }
 
   const { data: group, error: groupError } = await supabase
     .from("groups")
