@@ -200,15 +200,104 @@ export async function deleteListItem(itemId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+const parseListQuantityLabel = (rawQuantity: string): { quantidade: number; unidade: string } => {
+  const normalized = rawQuantity.trim().replace(/\s+/g, " ");
+  const match = normalized.match(/^(\d+(?:[.,]\d+)?)(?:\s+([a-zA-Z]+))?$/);
+
+  if (!match) {
+    return { quantidade: 1, unidade: "un" };
+  }
+
+  const parsedQuantity = Number.parseFloat(match[1].replace(",", "."));
+  const quantidade = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 1;
+  const unidade = (match[2] ?? "un").trim();
+
+  return {
+    quantidade,
+    unidade: unidade.length > 0 ? unidade : "un",
+  };
+};
+
 export async function finishShoppingList(listId: string, groupId: string): Promise<string | null> {
   const { data: items, error: itemsError } = await supabase
     .from("items")
-    .select("preco")
+    .select("nome, quantidade, categoria, comprado, preco")
     .eq("list_id", listId);
 
   if (itemsError) throw new Error(itemsError.message);
 
   const total = (items ?? []).reduce((sum, item) => sum + (item.preco ?? 0), 0);
+
+  const boughtItems = (items ?? []).filter((item) => item.comprado);
+  const sourceItems = boughtItems.length > 0 ? boughtItems : (items ?? []);
+
+  if (sourceItems.length > 0) {
+    const currentStockItems = await getStockItems(groupId);
+    const stockByKey = new Map(
+      currentStockItems.map((stockItem) => [
+        `${stockItem.nome.trim().toLowerCase()}::${stockItem.unidade.toLowerCase()}`,
+        stockItem,
+      ]),
+    );
+    const todayDate = new Date().toISOString().slice(0, 10);
+
+    type AggregatedStockUpdate = {
+      key: string;
+      nome: string;
+      categoria: string | null | undefined;
+      unidade: string;
+      quantidade: number;
+    };
+    const aggregatedStockUpdates = new Map<string, AggregatedStockUpdate>();
+
+    for (const boughtItem of sourceItems) {
+      const parsed = parseListQuantityLabel(boughtItem.quantidade);
+      if (parsed.quantidade <= 0) continue;
+
+      const key = `${boughtItem.nome.trim().toLowerCase()}::${parsed.unidade.toLowerCase()}`;
+      const existingAggregatedUpdate = aggregatedStockUpdates.get(key);
+
+      if (existingAggregatedUpdate) {
+        existingAggregatedUpdate.quantidade += parsed.quantidade;
+        continue;
+      }
+
+      aggregatedStockUpdates.set(key, {
+        key,
+        nome: boughtItem.nome,
+        categoria: boughtItem.categoria,
+        unidade: parsed.unidade,
+        quantidade: parsed.quantidade,
+      });
+    }
+
+    const savedStockItems = await Promise.all(
+      Array.from(aggregatedStockUpdates.values()).map(async (aggregatedUpdate) => {
+        const existingStockItem = stockByKey.get(aggregatedUpdate.key);
+
+        return upsertStockItem({
+          id: existingStockItem?.id,
+          groupId,
+          nome: aggregatedUpdate.nome,
+          categoria: existingStockItem?.categoria ?? aggregatedUpdate.categoria ?? "Outros",
+          unidade: aggregatedUpdate.unidade,
+          quantidade: (existingStockItem?.quantidade ?? 0) + aggregatedUpdate.quantidade,
+          quantidadeMinima: existingStockItem?.quantidade_minima ?? 0,
+          tamanhoPorcao: existingStockItem?.tamanho_porcao ?? 1,
+          autoAdicionarLista: existingStockItem?.auto_adicionar_lista ?? false,
+          consumoFrequencia: existingStockItem?.consumo_frequencia ?? "weekly",
+          consumoValor: existingStockItem?.consumo_valor ?? 0,
+          dataCompra: existingStockItem?.data_compra ?? todayDate,
+          dataValidade: existingStockItem?.data_validade ?? null,
+        });
+      }),
+    );
+
+    for (const savedStockItem of savedStockItems) {
+      const key = `${savedStockItem.nome.trim().toLowerCase()}::${savedStockItem.unidade.toLowerCase()}`;
+      stockByKey.set(key, savedStockItem);
+    }
+  }
 
   const { error: updateError } = await supabase
     .from("shopping_lists")
@@ -236,6 +325,16 @@ export async function loadShoppingHistory(groupId: string): Promise<ShoppingList
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+
+export const deleteShoppingHistory = async (listId: string): Promise<void> => {
+  const { error } = await supabase
+    .from("shopping_lists")
+    .delete()
+    .eq("id", listId)
+    .eq("ativa", false);
+
+  if (error) throw new Error(error.message);
+};
 
 export async function createGroupForCurrentUser(groupName: string): Promise<{
   groupId: string;
@@ -322,6 +421,40 @@ export async function joinGroupByCode(
   listId: string | null;
 }> {
   const normalizedCode = normalizeInviteCode(inviteCode);
+
+  type JoinGroupRpcResult = {
+    group_id: string;
+    group_name: string;
+    invite_code: string;
+  };
+
+  const isJoinGroupRpcResult = (value: unknown): value is JoinGroupRpcResult => {
+    if (typeof value !== "object" || value === null) return false;
+    const obj = value as Record<string, unknown>;
+    return (
+      typeof obj.group_id === "string" &&
+      typeof obj.group_name === "string" &&
+      typeof obj.invite_code === "string"
+    );
+  };
+
+  const { data: rpcJoinData, error: rpcJoinError } = await supabase.rpc("join_group_by_code", {
+    invite_code_input: normalizedCode,
+  });
+
+  if (!rpcJoinError && rpcJoinData) {
+    const rawJoined: unknown = Array.isArray(rpcJoinData) ? rpcJoinData[0] : rpcJoinData;
+    if (isJoinGroupRpcResult(rawJoined)) {
+      const activeList = await ensureActiveListForGroup(rawJoined.group_id);
+
+      return {
+        groupId: rawJoined.group_id,
+        groupName: rawJoined.group_name,
+        inviteCode: rawJoined.invite_code,
+        listId: activeList?.id ?? null,
+      };
+    }
+  }
 
   const { data: group, error: groupError } = await supabase
     .from("groups")
