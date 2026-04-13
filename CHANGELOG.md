@@ -5,6 +5,16 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [0.2.1](https://github.com/ApenasGabs/compras-em-dois-estoque/compare/v0.2.0...v0.2.1) (2026-04-13)
+
+### 🐛 Bug Fixes
+
+* :bug: fixes the RLS error ([e167aa8](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/e167aa8d1c41bca29c690d336c5ab9611d32662a))
+
+### ♻️ Refactoring
+
+* apply review feedback on history deletion, stock aggregation, and RPC type safety ([ccb4817](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/ccb481777ee12b75f16a04b039c63072d3326935))
+
 ## [0.2.0](https://github.com/ApenasGabs/compras-em-dois-estoque/compare/v0.1.1...v0.2.0) (2026-04-12)
 
 ### ✨ Features
