@@ -46,9 +46,8 @@ export function RegisterPage() {
       }
 
       if (data.user) {
-        useAuthStore
-          .getState()
-          .setUser(data.user.id, data.user.user_metadata?.nome ?? data.user.email ?? "");
+        const userName = data.user.user_metadata?.nome ?? data.user.email ?? "";
+        useAuthStore.getState().setUser(data.user.id, userName);
         useGroupStore.getState().setSnapshotUserId(data.user.id);
         const persistedSnapshot = getPersistedGroupSnapshotForUser(data.user.id);
 

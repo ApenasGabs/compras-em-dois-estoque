@@ -7,13 +7,24 @@ export interface UserSessionData {
   name: string;
 }
 
+const EMAIL_LIKE_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export interface ShoppingListRecord {
   id: string;
   ativa: boolean;
   finalizada_em: string | null;
   total: number | null;
   group_id: string;
-  items?: Array<{ id: string }>;
+  items?: ShoppingHistoryItemRecord[];
+}
+
+export interface ShoppingHistoryItemRecord {
+  id: string;
+  nome: string;
+  quantidade: string;
+  categoria: string;
+  comprado: boolean;
+  preco: number | null;
 }
 
 export interface ItemRecord {
@@ -113,11 +124,31 @@ export async function loadMembers(groupId: string): Promise<MemberRecord[]> {
 
   if (profileError) throw new Error(profileError.message);
 
-  return (profileData ?? []).map((profile) => ({
-    id: profile.id,
-    nome: profile.nome ?? "Usuário",
+  const profileNameById = new Map(
+    (profileData ?? []).map((profile) => [profile.id, profile.nome ?? "Usuário"]),
+  );
+
+  return userIds.map((userId) => ({
+    id: userId,
+    nome: profileNameById.get(userId) ?? "Usuário",
   }));
 }
+
+export const syncCurrentUserProfile = async (input: UserSessionData): Promise<void> => {
+  const normalizedName = input.name.trim();
+
+  if (!normalizedName || EMAIL_LIKE_PATTERN.test(normalizedName.toLowerCase())) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .upsert({ id: input.id, nome: normalizedName }, { onConflict: "id" });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
 
 export async function loadActiveList(groupId: string): Promise<ShoppingListRecord | null> {
   const { data, error } = await supabase
