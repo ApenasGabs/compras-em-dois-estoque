@@ -6,7 +6,7 @@ import { Button } from "../components/Button/Button";
 import { Card, CardBody, CardTitle } from "../components/Card/Card";
 import { Input } from "../components/Input/Input";
 import { supabase } from "../lib/supabase";
-import { restoreGroupContext } from "../lib/webData";
+import { restoreGroupContext, syncCurrentUserProfile } from "../lib/webData";
 import { useAuthStore } from "../stores/authStore";
 import { getPersistedGroupSnapshotForUser, useGroupStore } from "../stores/groupStore";
 
@@ -46,9 +46,13 @@ export function RegisterPage() {
       }
 
       if (data.user) {
-        useAuthStore
-          .getState()
-          .setUser(data.user.id, data.user.user_metadata?.nome ?? data.user.email ?? "");
+        const userName = data.user.user_metadata?.nome ?? data.user.email ?? "";
+        useAuthStore.getState().setUser(data.user.id, userName);
+        try {
+          await syncCurrentUserProfile({ id: data.user.id, name: userName });
+        } catch (profileError) {
+          console.warn("Falha ao sincronizar perfil do usuário", profileError);
+        }
         useGroupStore.getState().setSnapshotUserId(data.user.id);
         const persistedSnapshot = getPersistedGroupSnapshotForUser(data.user.id);
 

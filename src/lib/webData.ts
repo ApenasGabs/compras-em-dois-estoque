@@ -113,11 +113,31 @@ export async function loadMembers(groupId: string): Promise<MemberRecord[]> {
 
   if (profileError) throw new Error(profileError.message);
 
-  return (profileData ?? []).map((profile) => ({
-    id: profile.id,
-    nome: profile.nome ?? "Usuário",
+  const profileNameById = new Map(
+    (profileData ?? []).map((profile) => [profile.id, profile.nome ?? "Usuário"]),
+  );
+
+  return userIds.map((userId) => ({
+    id: userId,
+    nome: profileNameById.get(userId) ?? "Usuário",
   }));
 }
+
+export const syncCurrentUserProfile = async (input: UserSessionData): Promise<void> => {
+  const normalizedName = input.name.trim();
+
+  if (!normalizedName) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .upsert({ id: input.id, nome: normalizedName }, { onConflict: "id" });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
 
 export async function loadActiveList(groupId: string): Promise<ShoppingListRecord | null> {
   const { data, error } = await supabase
@@ -327,6 +347,10 @@ export async function loadShoppingHistory(groupId: string): Promise<ShoppingList
 }
 
 export const deleteShoppingHistory = async (listId: string): Promise<void> => {
+  const { error: itemsError } = await supabase.from("items").delete().eq("list_id", listId);
+
+  if (itemsError) throw new Error(itemsError.message);
+
   const { error } = await supabase
     .from("shopping_lists")
     .delete()
