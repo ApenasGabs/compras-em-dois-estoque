@@ -5,6 +5,17 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [0.4.0](https://github.com/ApenasGabs/compras-em-dois-estoque/compare/v0.3.0...v0.4.0) (2026-04-14)
+
+### ✨ Features
+
+* :sparkles: add CI workflows for tests, linting, and building the application ([d51c84d](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/d51c84d17c24deca2764d8b831a2236b3f1ed944))
+* :sparkles: implement theme management with meta theme color support ([0365b63](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/0365b6382936895a0ed76ec2e6effa6b8aacae33))
+
+### 🐛 Bug Fixes
+
+* address review feedback on theme.ts and release workflow ([15f7fdf](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/15f7fdf34079385032f38958b68f2e89b86ca98d))
+
 ## [0.3.0](https://github.com/ApenasGabs/compras-em-dois-estoque/compare/v0.2.1...v0.3.0) (2026-04-14)
 
 ### ✨ Features
