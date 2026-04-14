@@ -7,6 +7,8 @@ export interface UserSessionData {
   name: string;
 }
 
+const EMAIL_LIKE_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export interface ShoppingListRecord {
   id: string;
   ativa: boolean;
@@ -135,7 +137,7 @@ export async function loadMembers(groupId: string): Promise<MemberRecord[]> {
 export const syncCurrentUserProfile = async (input: UserSessionData): Promise<void> => {
   const normalizedName = input.name.trim();
 
-  if (!normalizedName) {
+  if (!normalizedName || EMAIL_LIKE_PATTERN.test(normalizedName.toLowerCase())) {
     return;
   }
 
@@ -356,10 +358,6 @@ export async function loadShoppingHistory(groupId: string): Promise<ShoppingList
 }
 
 export const deleteShoppingHistory = async (listId: string): Promise<void> => {
-  const { error: itemsError } = await supabase.from("items").delete().eq("list_id", listId);
-
-  if (itemsError) throw new Error(itemsError.message);
-
   const { error } = await supabase
     .from("shopping_lists")
     .delete()
