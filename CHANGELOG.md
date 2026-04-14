@@ -5,6 +5,17 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [0.5.0](https://github.com/ApenasGabs/compras-em-dois-estoque/compare/v0.4.0...v0.5.0) (2026-04-14)
+
+### ✨ Features
+
+* :sparkles: enhance shopping list history display with item details and price formatting ([ec4183e](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/ec4183e6a1b1794d74f534dc32efe6579cf0d7ca))
+
+### 🐛 Bug Fixes
+
+* :wrench: synchronize user profile on login and registration ([1a3173b](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/1a3173b9c096ed27c184a23b04dbbfb843a4e3e3))
+* remove sync duplicada de perfil e exclusão parcial do histórico ([5c2496e](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/5c2496e940824c2cf7ab0e7b358efde2aca045a0))
+
 ## [0.4.0](https://github.com/ApenasGabs/compras-em-dois-estoque/compare/v0.3.0...v0.4.0) (2026-04-14)
 
 ### ✨ Features
