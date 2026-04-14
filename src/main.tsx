@@ -1,9 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import App from "./App.tsx";
 import { SessionBootstrap } from "./components/SessionBootstrap";
 import "./index.css";
-import App from "./App.tsx";
+import { initializeTheme } from "./lib/theme";
+
+initializeTheme();
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
@@ -13,7 +16,7 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
   });
 }
 
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <SessionBootstrap />

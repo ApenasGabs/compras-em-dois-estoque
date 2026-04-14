@@ -1,7 +1,11 @@
 name: Release
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - Tests
+    types:
+      - completed
     branches:
       - main
 
@@ -14,12 +18,16 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    if: github.event.workflow_run.conclusion == 'success'
+    concurrency:
+      group: release-${{ github.workflow }}-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: false
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
           persist-credentials: false
 
