@@ -13,7 +13,16 @@ export interface ShoppingListRecord {
   finalizada_em: string | null;
   total: number | null;
   group_id: string;
-  items?: Array<{ id: string }>;
+  items?: ShoppingHistoryItemRecord[];
+}
+
+export interface ShoppingHistoryItemRecord {
+  id: string;
+  nome: string;
+  quantidade: string;
+  categoria: string;
+  comprado: boolean;
+  preco: number | null;
 }
 
 export interface ItemRecord {

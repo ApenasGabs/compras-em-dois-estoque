@@ -61,6 +61,11 @@ export function HistoryPage() {
     }
   };
 
+  const formatItemPrice = (price: number | null): string => {
+    if (price === null) return "Sem preço";
+    return `R$ ${price.toFixed(2)}`;
+  };
+
   return (
     <main className="page">
       <header className="page-header">
@@ -99,6 +104,32 @@ export function HistoryPage() {
                     </Badge>
                   </div>
                   <p>{list.items?.length ?? 0} itens</p>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-sm text-base-content/80">
+                      Ver itens da lista
+                    </summary>
+                    {!list.items || list.items.length === 0 ? (
+                      <p className="muted mt-2">Nenhum item registrado nessa lista.</p>
+                    ) : (
+                      <ul className="stack-list mt-2">
+                        {list.items.map((item) => (
+                          <li key={item.id} className="history-item">
+                            <div className="history-head">
+                              <strong>{item.nome}</strong>
+                              <Badge variant={item.comprado ? "success" : "warning"}>
+                                {item.comprado ? "Comprado" : "Pendente"}
+                              </Badge>
+                            </div>
+                            <p>
+                              {item.quantidade || "Sem quantidade"}
+                              {item.categoria ? ` • ${item.categoria}` : ""}
+                              {` • ${formatItemPrice(item.preco)}`}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </details>
                   <div className="actions-row mt-2">
                     <Button
                       type="button"
