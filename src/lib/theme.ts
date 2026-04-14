@@ -1,12 +1,18 @@
-const THEME_STORAGE_KEY = "theme";
-const DEFAULT_THEME = "light";
+export const THEME_STORAGE_KEY = "theme";
+export const DEFAULT_THEME = "light";
+export const FALLBACK_THEME_COLOR = "#7C9E87";
 
-const getStoredTheme = (): string => {
+export const getStoredTheme = (): string => {
   if (typeof window === "undefined") {
     return DEFAULT_THEME;
   }
 
-  return window.localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME;
+  try {
+    return window.localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME;
+  } catch (error) {
+    console.warn("Failed to read theme from localStorage:", error);
+    return DEFAULT_THEME;
+  }
 };
 
 const ensureThemeColorMeta = (): HTMLMetaElement | null => {
@@ -27,7 +33,7 @@ const ensureThemeColorMeta = (): HTMLMetaElement | null => {
 
 const resolveThemeColor = (): string => {
   if (typeof document === "undefined") {
-    return "#7C9E87";
+    return FALLBACK_THEME_COLOR;
   }
 
   const probe = document.createElement("div");
@@ -43,10 +49,10 @@ const resolveThemeColor = (): string => {
 
   probe.remove();
 
-  return computedColor || "#7C9E87";
+  return computedColor || FALLBACK_THEME_COLOR;
 };
 
-const updateThemeColorMeta = (): void => {
+export const updateThemeColorMeta = (): void => {
   const metaThemeColor = ensureThemeColorMeta();
 
   if (!metaThemeColor) {
@@ -56,18 +62,24 @@ const updateThemeColorMeta = (): void => {
   metaThemeColor.content = resolveThemeColor();
 };
 
-const applyTheme = (theme: string): void => {
+export const applyTheme = (theme: string): void => {
   if (typeof document === "undefined") {
     return;
   }
 
   document.documentElement.setAttribute("data-theme", theme);
   document.body.setAttribute("data-theme", theme);
-  window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (error) {
+    console.warn("Failed to save theme to localStorage:", error);
+  }
+
   updateThemeColorMeta();
 };
 
-const initializeTheme = (): void => {
+export const initializeTheme = (): void => {
   if (typeof document === "undefined") {
     return;
   }
@@ -75,11 +87,3 @@ const initializeTheme = (): void => {
   applyTheme(getStoredTheme());
 };
 
-export {
-  applyTheme,
-  DEFAULT_THEME,
-  getStoredTheme,
-  initializeTheme,
-  THEME_STORAGE_KEY,
-  updateThemeColorMeta,
-};
