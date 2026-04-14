@@ -1,27 +1,12 @@
 import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useState } from "react";
-
-const DEFAULT_THEME = "light";
+import { applyTheme, getStoredTheme } from "../../lib/theme";
 
 const ThemeSelector = () => {
-  const [currentTheme, setCurrentTheme] = useState<string>(() => {
-    if (typeof window === "undefined") return DEFAULT_THEME;
-    return localStorage.getItem("theme") || DEFAULT_THEME;
-  });
-
-  const applyTheme = (theme: string) => {
-    // daisyUI aceita tanto data-theme quanto class na raiz
-    document.documentElement.setAttribute("data-theme", theme);
-    document.documentElement.className = theme;
-    document.body.setAttribute("data-theme", theme);
-    document.body.className = theme;
-    localStorage.setItem("theme", theme);
-  };
+  const [currentTheme, setCurrentTheme] = useState<string>(() => getStoredTheme());
 
   const toggleDrawer = useCallback((): void => {
-    const drawerToggle = document.getElementById(
-      "theme-drawer",
-    ) as HTMLInputElement | null;
+    const drawerToggle = document.getElementById("theme-drawer") as HTMLInputElement | null;
 
     if (!drawerToggle) return;
 
