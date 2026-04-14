@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [0.3.0](https://github.com/ApenasGabs/compras-em-dois-estoque/compare/v0.2.1...v0.3.0) (2026-04-14)
+
+### ✨ Features
+
+* :wrench: add password confirmation field and validation to registration form ([ecb598c](https://github.com/ApenasGabs/compras-em-dois-estoque/commit/ecb598cd129fca7093b62de12b7e45833227ffa5))
+
 ## [0.2.1](https://github.com/ApenasGabs/compras-em-dois-estoque/compare/v0.2.0...v0.2.1) (2026-04-13)
 
 ### 🐛 Bug Fixes
