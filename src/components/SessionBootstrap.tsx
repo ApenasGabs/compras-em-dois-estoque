@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { restoreGroupContext, syncCurrentUserProfile } from "../lib/webData";
+import { restoreGroupContext } from "../lib/webData";
 import { useAuthStore } from "../stores/authStore";
 import { getPersistedGroupSnapshotForUser, useGroupStore } from "../stores/groupStore";
 import { useSessionStore } from "../stores/sessionStore";
@@ -64,13 +64,7 @@ export function SessionBootstrap() {
 
       clearInitialTimer();
 
-      const userName = session.user.user_metadata?.nome ?? session.user.email ?? "";
-      setUser(session.user.id, userName);
-      try {
-        await syncCurrentUserProfile({ id: session.user.id, name: userName });
-      } catch (profileError) {
-        console.warn("Falha ao sincronizar perfil do usuário", profileError);
-      }
+      setUser(session.user.id, session.user.user_metadata?.nome ?? session.user.email ?? "");
       setSnapshotUserId(session.user.id);
 
       const persistedSnapshot = getPersistedGroupSnapshotForUser(session.user.id);
